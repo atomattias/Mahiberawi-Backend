@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  fullName      String
+  role          UserRole       @default(USER)
+  status        UserStatus     @default(ACTIVE)
+  profilePicture String?
+  phoneNumber   String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  groups        GroupMember[]
+  createdGroups Group[]        @relation("GroupCreator")
+  createdEvents Event[]        @relation("EventCreator")
+  payments      Payment[]
+  sentMessages     Message[]   @relation("SentMessages")
+  receivedMessages Message[]   @relation("ReceivedMessages")
+  notifications Notification[]
+}
+
+model Group {
+  id          String       @id @default(uuid())
+  name        String
+  description String?
+  createdBy   String
+  status      GroupStatus  @default(ACTIVE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  creator     User         @relation("GroupCreator", fields: [createdBy], references: [id])
+  members     GroupMember[]
+  events      Event[]
+  payments    Payment[]
+  messages    Message[]
+}
+
+model GroupMember {
+  id        String       @id @default(uuid())
+  groupId   String
+  userId    String
+  role      GroupRole    @default(MEMBER)
+  status    MemberStatus @default(ACTIVE)
+  joinedAt  DateTime     @default(now())
+  group     Group        @relation(fields: [groupId], references: [id])
+  user      User         @relation(fields: [userId], references: [id])
+
+  @@unique([groupId, userId])
+}
+
+model Event {
+  id          String      @id @default(uuid())
+  groupId     String
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  location    String?
+  createdBy   String
+  status      EventStatus @default(ACTIVE)
+  createdAt   DateTime    @default(now())
+  group       Group       @relation(fields: [groupId], references: [id])
+  creator     User        @relation("EventCreator", fields: [createdBy], references: [id])
+  attendees   EventAttendance[]
+}
+
+model EventAttendance {
+  id        String   @id @default(uuid())
+  eventId   String
+  userId    String
+  status    AttendanceStatus @default(REGISTERED)
+  createdAt DateTime @default(now())
+  event     Event    @relation(fields: [eventId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([eventId, userId])
+}
+
+model Payment {
+  id          String        @id @default(uuid())
+  groupId     String
+  userId      String
+  amount      Decimal
+  description String?
+  status      PaymentStatus @default(PENDING)
+  dueDate     DateTime?
+  createdAt   DateTime      @default(now())
+  group       Group         @relation(fields: [groupId], references: [id])
+  user        User          @relation(fields: [userId], references: [id])
+}
+
+model Message {
+  id          String        @id @default(uuid())
+  senderId    String
+  receiverId  String?
+  groupId     String?
+  content     String
+  status      MessageStatus @default(SENT)
+  createdAt   DateTime      @default(now())
+  sender      User          @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User?         @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  group       Group?        @relation(fields: [groupId], references: [id])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  content   String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  GROUP_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum GroupStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum GroupRole {
+  MEMBER
+  ADMIN
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+enum EventStatus {
+  ACTIVE
+  CANCELLED
+  COMPLETED
+}
+
+enum AttendanceStatus {
+  REGISTERED
+  ATTENDED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum NotificationType {
+  EVENT
+  PAYMENT
+  MESSAGE
+  GROUP
+  SYSTEM
+} 
