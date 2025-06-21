@@ -12,17 +12,9 @@ import java.time.LocalDateTime;
 public class GroupMemberResponse {
     private String id;
     private String userId;
-    private String userName;
-    private String userEmail;
-    private String userProfilePicture;
-    private String groupId;
-    private String groupName;
+    private String name;
+    private String email;
     private GroupMemberRole role;
     private GroupMemberStatus status;
-    private String invitedById;
-    private String invitedByName;
-    private String invitationMessage;
     private LocalDateTime joinedAt;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 } 

@@ -11,6 +11,7 @@ import com.mahiberawi.entity.User;
 import com.mahiberawi.entity.UserRole;
 import com.mahiberawi.entity.enums.GroupMemberRole;
 import com.mahiberawi.entity.enums.GroupMemberStatus;
+import com.mahiberawi.entity.enums.GroupPrivacy;
 import com.mahiberawi.exception.ResourceNotFoundException;
 import com.mahiberawi.exception.UnauthorizedException;
 import com.mahiberawi.repository.GroupMemberRepository;
@@ -23,6 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.mahiberawi.dto.group.JoinGroupRequest;
+import com.mahiberawi.dto.ApiResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -37,8 +41,9 @@ public class GroupService {
         Group group = Group.builder()
                 .name(request.getName())
                 .description(request.getDescription())
+                .type(request.getType())
+                .privacy(request.getPrivacy())
                 .profilePicture(request.getProfilePicture())
-                .isPublic(request.isPublic())
                 .creator(creator)
                 .build();
 
@@ -100,10 +105,8 @@ public class GroupService {
 
         group.setName(request.getName());
         group.setDescription(request.getDescription());
-        group.setProfilePicture(request.getProfilePicture());
-        group.setPublic(request.isPublic());
-        group.setJoinCode(request.getJoinCode());
-        group.setInvitationLink(request.getInvitationLink());
+        group.setType(request.getType());
+        group.setPrivacy(request.getPrivacy());
         group = groupRepository.save(group);
 
         return mapToResponse(group);
@@ -127,11 +130,13 @@ public class GroupService {
             throw new RuntimeException("User is already a member of this group");
         }
 
-        GroupMember member = new GroupMember();
-        member.setGroup(group);
-        member.setUser(user);
-        member.setRole(GroupMemberRole.MEMBER);
-        member.setStatus(GroupMemberStatus.ACTIVE);
+        GroupMember member = GroupMember.builder()
+                .group(group)
+                .user(user)
+                .role(GroupMemberRole.MEMBER)
+                .status(GroupMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
         groupMemberRepository.save(member);
 
         return mapToResponse(group);
@@ -148,10 +153,10 @@ public class GroupService {
     public List<GroupResponse> getPublicGroups(String search) {
         List<Group> groups;
         if (search != null && !search.trim().isEmpty()) {
-            groups = groupRepository.findByIsPublicTrueAndNameContainingOrDescriptionContaining(
-                    search, search);
+            groups = groupRepository.findByPrivacyAndNameContainingOrPrivacyAndDescriptionContaining(
+                    GroupPrivacy.PUBLIC, search, GroupPrivacy.PUBLIC, search);
         } else {
-            groups = groupRepository.findByIsPublicTrue();
+            groups = groupRepository.findByPrivacy(GroupPrivacy.PUBLIC);
         }
         return groups.stream()
                 .map(this::mapToResponse)
@@ -160,7 +165,7 @@ public class GroupService {
 
     @Transactional
     public GroupResponse joinGroupWithCode(String code, User user) {
-        Group group = groupRepository.findByJoinCode(code)
+        Group group = groupRepository.findByCode(code)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with code: " + code));
 
         if (groupMemberRepository.existsByGroupAndUser(group, user)) {
@@ -171,6 +176,8 @@ public class GroupService {
                 .group(group)
                 .user(user)
                 .role(GroupMemberRole.MEMBER)
+                .status(GroupMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
                 .build();
         groupMemberRepository.save(member);
 
@@ -179,7 +186,7 @@ public class GroupService {
 
     @Transactional
     public GroupResponse joinGroupWithLink(String link, User user) {
-        Group group = groupRepository.findByInvitationLink(link)
+        Group group = groupRepository.findByInviteLink(link)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with link: " + link));
 
         if (groupMemberRepository.existsByGroupAndUser(group, user)) {
@@ -190,6 +197,8 @@ public class GroupService {
                 .group(group)
                 .user(user)
                 .role(GroupMemberRole.MEMBER)
+                .status(GroupMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
                 .build();
         groupMemberRepository.save(member);
 
@@ -208,15 +217,12 @@ public class GroupService {
                 .id(group.getId())
                 .name(group.getName())
                 .description(group.getDescription())
-                .profilePicture(group.getProfilePicture())
-                .isPublic(group.isPublic())
-                .joinCode(group.getJoinCode())
-                .invitationLink(group.getInvitationLink())
-                .creatorId(group.getCreator().getId())
-                .creatorName(group.getCreator().getFullName())
-                .memberCount(group.getMembers().size())
+                .type(group.getType())
+                .privacy(group.getPrivacy())
+                .code(group.getCode())
+                .inviteLink(group.getInviteLink())
+                .memberCount(group.getMemberCount())
                 .createdAt(group.getCreatedAt())
-                .updatedAt(group.getUpdatedAt())
                 .build();
     }
 
@@ -351,10 +357,10 @@ public class GroupService {
         return GroupMemberResponse.builder()
                 .id(member.getId())
                 .userId(member.getUser().getId())
-                .userEmail(member.getUser().getEmail())
-                .userName(member.getUser().getFullName())
-                .userProfilePicture(member.getUser().getProfilePicture())
+                .email(member.getUser().getEmail())
+                .name(member.getUser().getName())
                 .role(member.getRole())
+                .status(member.getStatus())
                 .joinedAt(member.getJoinedAt())
                 .build();
     }
@@ -367,13 +373,13 @@ public class GroupService {
 
     private void notifyMemberJoined(GroupMember member) {
         String message = String.format("%s has joined the group '%s'",
-                member.getUser().getFullName(), member.getGroup().getName());
+                member.getUser().getName(), member.getGroup().getName());
         notificationService.createGroupNotification(member.getGroup().getCreator(), member.getGroup(), message);
     }
 
     private void notifyMemberRejected(GroupMember member) {
         String message = String.format("%s has declined the invitation to join the group '%s'",
-                member.getUser().getFullName(), member.getGroup().getName());
+                member.getUser().getName(), member.getGroup().getName());
         notificationService.createGroupNotification(member.getGroup().getCreator(), member.getGroup(), message);
     }
 
@@ -400,18 +406,50 @@ public class GroupService {
                 .id(group.getId())
                 .name(group.getName())
                 .description(group.getDescription())
-                .members(group.getMembers().stream()
-                        .map(member -> GroupMemberResponse.builder()
-                                .id(member.getId())
-                                .userId(member.getUser().getId())
-                                .userEmail(member.getUser().getEmail())
-                                .userName(member.getUser().getFullName())
-                                .userProfilePicture(member.getUser().getProfilePicture())
-                                .role(member.getRole())
-                                .joinedAt(member.getJoinedAt())
-                                .lastActiveAt(member.getUpdatedAt())
-                                .build())
-                        .collect(Collectors.toList()))
+                .type(group.getType())
+                .privacy(group.getPrivacy())
+                .code(group.getCode())
+                .inviteLink(group.getInviteLink())
+                .memberCount(group.getMemberCount())
+                .createdAt(group.getCreatedAt())
+                .build();
+    }
+
+    @Transactional
+    public ApiResponse joinGroup(String groupId, JoinGroupRequest request, User user) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group", "id", groupId));
+
+        // Check if user is already a member
+        if (groupMemberRepository.existsByGroupAndUser(group, user)) {
+            throw new RuntimeException("User is already a member of this group");
+        }
+
+        // Validate the group code
+        if (!group.getCode().equals(request.getCode())) {
+            throw new RuntimeException("Invalid group code");
+        }
+
+        // Add user as member
+        GroupMember member = GroupMember.builder()
+                .group(group)
+                .user(user)
+                .role(GroupMemberRole.MEMBER)
+                .status(GroupMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+        groupMemberRepository.save(member);
+
+        // Update group member count
+        group.setMemberCount(group.getMemberCount() + 1);
+        groupRepository.save(group);
+
+        // Send notification
+        notifyMemberJoined(member);
+
+        return ApiResponse.builder()
+                .success(true)
+                .message("Successfully joined the group")
                 .build();
     }
 } 

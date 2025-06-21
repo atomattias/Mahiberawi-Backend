@@ -21,13 +21,11 @@ import java.time.LocalDateTime;
 @EqualsAndHashCode(callSuper = true)
 @EntityListeners(AuditingEntityListener.class)
 public class GroupMember extends BaseEntity {
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_id", nullable = false)
-    private Group group;
+    @Column(name = "group_id", nullable = false)
+    private String groupId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private String userId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -35,7 +33,18 @@ public class GroupMember extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private GroupMemberStatus status = GroupMemberStatus.PENDING;
+    private GroupMemberStatus status = GroupMemberStatus.ACTIVE;
+
+    @Column(name = "joined_at")
+    private LocalDateTime joinedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id", insertable = false, updatable = false)
+    private Group group;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invited_by_id")
@@ -43,9 +52,6 @@ public class GroupMember extends BaseEntity {
 
     @Column(name = "invitation_message")
     private String invitationMessage;
-
-    @Column(name = "joined_at")
-    private LocalDateTime joinedAt;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

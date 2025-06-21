@@ -4,6 +4,7 @@ import com.mahiberawi.dto.group.GroupRequest;
 import com.mahiberawi.dto.group.GroupResponse;
 import com.mahiberawi.dto.group.GroupMemberRequest;
 import com.mahiberawi.dto.group.GroupMemberResponse;
+import com.mahiberawi.dto.group.JoinGroupRequest;
 import com.mahiberawi.entity.User;
 import com.mahiberawi.entity.enums.GroupMemberRole;
 import com.mahiberawi.service.GroupService;
@@ -24,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/groups")
+@RequestMapping("/groups")
 @RequiredArgsConstructor
 @Tag(
     name = "Groups",
@@ -313,5 +314,31 @@ public class GroupController {
             @AuthenticationPrincipal User user) {
         GroupMemberResponse member = groupService.leaveGroup(groupId, user);
         return ResponseEntity.ok(member);
+    }
+
+    @Operation(
+        summary = "Join a group",
+        description = "Joins a group using the group code or invitation link"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Successfully joined the group",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid group code"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "404", description = "Group not found"),
+        @ApiResponse(responseCode = "409", description = "Already a member of the group")
+    })
+    @PostMapping("/{groupId}/join")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> joinGroup(
+            @Parameter(description = "ID of the group to join", required = true)
+            @PathVariable String groupId,
+            @Parameter(description = "Join request with group code", required = true)
+            @Valid @RequestBody JoinGroupRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(groupService.joinGroup(groupId, request, user));
     }
 } 
