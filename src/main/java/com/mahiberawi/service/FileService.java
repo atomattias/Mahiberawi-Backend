@@ -172,7 +172,7 @@ public class FileService {
                 .type(file.getType())
                 .url(file.getUrl())
                 .uploaderId(file.getUploader().getId())
-                .uploaderName(file.getUploader().getFullName())
+                .uploaderName(file.getUploader().getName())
                 .relatedEntityId(file.getRelatedEntityId())
                 .relatedEntityType(file.getRelatedEntityType())
                 .uploadedAt(file.getCreatedAt())

@@ -111,7 +111,7 @@ public class PaymentService {
         return PaymentResponse.builder()
                 .id(payment.getId())
                 .userId(payment.getPayer().getId())
-                .userFullName(payment.getPayer().getFullName())
+                .userFullName(payment.getPayer().getName())
                 .userEmail(payment.getPayer().getEmail())
                 .amount(payment.getAmount())
                 .method(payment.getMethod())

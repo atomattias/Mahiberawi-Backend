@@ -10,6 +10,7 @@ import com.mahiberawi.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.mahiberawi.entity.GroupMember;
 
 @Service
 @RequiredArgsConstructor
@@ -21,7 +22,7 @@ public class NotificationService {
         Notification notification = new Notification();
         notification.setUser(user);
         notification.setType(NotificationType.MESSAGE);
-        notification.setContent(String.format("New message from %s", message.getSender().getFullName()));
+        notification.setContent(String.format("New message from %s", message.getSender().getName()));
         notification.setRead(false);
         notificationRepository.save(notification);
     }
@@ -65,5 +66,21 @@ public class NotificationService {
         notification.setContent(content);
         notification.setRead(false);
         notificationRepository.save(notification);
+    }
+
+    public void sendGroupInvitationNotification(GroupMember member) {
+        // Implementation of sendGroupInvitationNotification method
+    }
+
+    public void sendRoleUpdateNotification(GroupMember member) {
+        // Implementation of sendRoleUpdateNotification method
+    }
+
+    public void sendMemberRemovedNotification(GroupMember member) {
+        // Implementation of sendMemberRemovedNotification method
+    }
+
+    public void sendMemberLeftNotification(GroupMember member) {
+        // Implementation of sendMemberLeftNotification method
     }
 } 

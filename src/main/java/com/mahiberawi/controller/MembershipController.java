@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/memberships")
+@RequestMapping("/memberships")
 @RequiredArgsConstructor
 public class MembershipController {
     private final MembershipService membershipService;

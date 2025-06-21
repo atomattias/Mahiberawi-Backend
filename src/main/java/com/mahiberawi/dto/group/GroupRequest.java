@@ -1,6 +1,9 @@
 package com.mahiberawi.dto.group;
 
+import com.mahiberawi.entity.enums.GroupType;
+import com.mahiberawi.entity.enums.GroupPrivacy;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -12,4 +15,11 @@ public class GroupRequest {
 
     @Size(max = 1000, message = "Description cannot exceed 1000 characters")
     private String description;
+
+    @NotNull(message = "Group type is required")
+    private GroupType type;
+
+    private GroupPrivacy privacy = GroupPrivacy.PRIVATE;
+
+    private String profilePicture;
 } 
