@@ -9,6 +9,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import com.mahiberawi.entity.UserRole;
+import com.mahiberawi.entity.UserIntention;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -48,7 +49,11 @@ public class User implements UserDetails {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private UserRole role = UserRole.USER;
+    private UserRole role = UserRole.MEMBER;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserIntention intention = UserIntention.UNDECIDED;
 
     @Column(name = "is_email_verified")
     private boolean isEmailVerified = false;

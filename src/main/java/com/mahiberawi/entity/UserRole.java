@@ -1,7 +1,7 @@
 package com.mahiberawi.entity;
 
 public enum UserRole {
-    USER,
+    MEMBER,
     ADMIN,
-    GROUP_ADMIN
+    SUPER_ADMIN
 } 

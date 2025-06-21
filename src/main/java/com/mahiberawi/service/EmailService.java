@@ -258,4 +258,115 @@ public class EmailService {
             userName, code, verificationCodeExpiryMinutes
         );
     }
+
+    /**
+     * Send group invitation email
+     */
+    @Transactional
+    public boolean sendGroupInvitationEmail(String email, String groupCode, String inviterName) {
+        try {
+            log.info("Sending group invitation email to: {}", email);
+            
+            // Validate email configuration
+            if (fromEmail == null || fromEmail.equals("your-email@gmail.com")) {
+                log.error("Email configuration not set properly. Please configure spring.mail.username in application.properties");
+                return false;
+            }
+            
+            // Send email
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(email);
+            message.setSubject("You're Invited to Join a Group - Mahiberawi");
+            
+            String emailContent;
+            if (groupCode != null && !groupCode.trim().isEmpty()) {
+                emailContent = buildGroupInvitationEmailContent(inviterName, groupCode);
+            } else {
+                emailContent = buildGeneralGroupInvitationEmailContent(inviterName);
+            }
+            
+            message.setText(emailContent);
+            
+            log.debug("Attempting to send group invitation email from: {} to: {}", fromEmail, email);
+            mailSender.send(message);
+            log.info("Group invitation email sent successfully to: {}", email);
+            
+            return true;
+            
+        } catch (Exception e) {
+            log.error("Failed to send group invitation email to: {}", email, e);
+            return false;
+        }
+    }
+
+    /**
+     * Send group invitation verification email
+     */
+    @Transactional
+    public boolean sendGroupInvitationVerificationEmail(String email, String invitationToken, String userName) {
+        try {
+            log.info("Sending group invitation verification email to: {}", email);
+            
+            // Validate email configuration
+            if (fromEmail == null || fromEmail.equals("your-email@gmail.com")) {
+                log.error("Email configuration not set properly. Please configure spring.mail.username in application.properties");
+                return false;
+            }
+            
+            // Send email
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(email);
+            message.setSubject("Verify Your Group Invitation - Mahiberawi");
+            message.setText(buildGroupInvitationVerificationEmailContent(userName, invitationToken));
+            
+            log.debug("Attempting to send group invitation verification email from: {} to: {}", fromEmail, email);
+            mailSender.send(message);
+            log.info("Group invitation verification email sent successfully to: {}", email);
+            
+            return true;
+            
+        } catch (Exception e) {
+            log.error("Failed to send group invitation verification email to: {}", email, e);
+            return false;
+        }
+    }
+
+    private String buildGroupInvitationEmailContent(String inviterName, String groupCode) {
+        return String.format(
+            "Hello!\n\n" +
+            "%s has invited you to join a group on Mahiberawi.\n\n" +
+            "To join the group, please use the following code in the Mahiberawi app:\n" +
+            "Group Code: %s\n\n" +
+            "If you don't have the Mahiberawi app, you can download it from your app store.\n\n" +
+            "Best regards,\n" +
+            "The Mahiberawi Team",
+            inviterName, groupCode
+        );
+    }
+
+    private String buildGeneralGroupInvitationEmailContent(String inviterName) {
+        return String.format(
+            "Hello!\n\n" +
+            "%s has invited you to join Mahiberawi, a platform for managing groups and events.\n\n" +
+            "To get started, please download the Mahiberawi app from your app store and create an account.\n\n" +
+            "Best regards,\n" +
+            "The Mahiberawi Team",
+            inviterName
+        );
+    }
+
+    private String buildGroupInvitationVerificationEmailContent(String userName, String invitationToken) {
+        return String.format(
+            "Hello %s!\n\n" +
+            "You requested to join a group on Mahiberawi. To complete the process, please click the link below:\n\n" +
+            "Verification Link: https://mahiberawi.com/verify-invitation?token=%s\n\n" +
+            "This link will expire in 24 hours.\n\n" +
+            "If you didn't request this invitation, please ignore this email.\n\n" +
+            "Best regards,\n" +
+            "The Mahiberawi Team",
+            userName, invitationToken
+        );
+    }
 } 

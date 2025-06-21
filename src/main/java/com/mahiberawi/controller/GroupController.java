@@ -5,6 +5,9 @@ import com.mahiberawi.dto.group.GroupResponse;
 import com.mahiberawi.dto.group.GroupMemberRequest;
 import com.mahiberawi.dto.group.GroupMemberResponse;
 import com.mahiberawi.dto.group.JoinGroupRequest;
+import com.mahiberawi.dto.group.JoinByEmailRequest;
+import com.mahiberawi.dto.group.JoinByLinkRequest;
+import com.mahiberawi.dto.group.JoinResponse;
 import com.mahiberawi.entity.User;
 import com.mahiberawi.entity.enums.GroupMemberRole;
 import com.mahiberawi.service.GroupService;
@@ -340,5 +343,165 @@ public class GroupController {
             @Parameter(hidden = true)
             @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(groupService.joinGroup(groupId, request, user));
+    }
+
+    @Operation(
+        summary = "Join group by email invitation",
+        description = "Sends an email invitation to join a group. If groupCode is provided, " +
+                     "sends invitation to that specific group. If not, sends a general invitation " +
+                     "that can be used to join any group."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Email invitation sent successfully",
+            content = @Content(schema = @Schema(implementation = JoinResponse.class))
+        ),
+        @ApiResponse(
+            responseCode = "202",
+            description = "Email invitation sent, verification required",
+            content = @Content(schema = @Schema(implementation = JoinResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid email or group code"),
+        @ApiResponse(responseCode = "404", description = "Group not found"),
+        @ApiResponse(responseCode = "409", description = "User already a member")
+    })
+    @PostMapping("/join-by-email")
+    public ResponseEntity<JoinResponse> joinByEmail(
+            @Parameter(description = "Email invitation details", required = true)
+            @Valid @RequestBody JoinByEmailRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        JoinResponse response = groupService.joinByEmail(request, user);
+        
+        if (response.isSuccess() && !response.isRequiresVerification()) {
+            return ResponseEntity.ok(response);
+        } else if (response.isRequiresVerification()) {
+            return ResponseEntity.accepted().body(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @Operation(
+        summary = "Join group by invitation link",
+        description = "Joins a group using an invitation link. The link should contain " +
+                     "the group identifier and optional invitation token."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Successfully joined the group",
+            content = @Content(schema = @Schema(implementation = JoinResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid invitation link"),
+        @ApiResponse(responseCode = "404", description = "Group not found"),
+        @ApiResponse(responseCode = "409", description = "Already a member of the group"),
+        @ApiResponse(responseCode = "410", description = "Invitation link expired")
+    })
+    @PostMapping("/join-by-link")
+    public ResponseEntity<JoinResponse> joinByLink(
+            @Parameter(description = "Invitation link details", required = true)
+            @Valid @RequestBody JoinByLinkRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        JoinResponse response = groupService.joinByLink(request, user);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @Operation(
+        summary = "Verify email invitation",
+        description = "Verifies an email invitation token and completes the group joining process"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Email verified and group joined successfully",
+            content = @Content(schema = @Schema(implementation = JoinResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid or expired token"),
+        @ApiResponse(responseCode = "404", description = "Invitation not found")
+    })
+    @PostMapping("/verify-invitation")
+    public ResponseEntity<JoinResponse> verifyInvitation(
+            @Parameter(description = "Invitation token", required = true)
+            @RequestParam String token) {
+        JoinResponse response = groupService.verifyInvitation(token);
+        
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @Operation(
+        summary = "Get public groups for discovery",
+        description = "Retrieves a list of public groups that users can discover and join"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Public groups retrieved successfully",
+            content = @Content(schema = @Schema(implementation = GroupResponse.class))
+        )
+    })
+    @GetMapping("/public")
+    public ResponseEntity<List<GroupResponse>> getPublicGroups(
+            @Parameter(description = "Search term for filtering groups")
+            @RequestParam(required = false) String search) {
+        List<GroupResponse> groups = groupService.getPublicGroups(search);
+        return ResponseEntity.ok(groups);
+    }
+
+    @Operation(
+        summary = "Generate QR code for group",
+        description = "Generates a QR code containing the group's invitation link"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "QR code generated successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "403", description = "Not authorized to generate QR code")
+    })
+    @PostMapping("/{groupId}/qr-code")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> generateQRCode(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(groupService.generateQRCode(groupId, user));
+    }
+
+    @Operation(
+        summary = "Check if user has any groups",
+        description = "Returns whether the current user is a member of any groups. " +
+                     "Useful for determining if user should see onboarding or regular content."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "User group status retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @GetMapping("/user/has-groups")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> hasGroups(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        boolean hasGroups = groupService.userHasGroups(user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message(hasGroups ? "User has groups" : "User has no groups")
+                .data(hasGroups)
+                .build());
     }
 } 
