@@ -25,4 +25,7 @@ public interface GroupRepository extends JpaRepository<Group, String> {
     Optional<Group> findByInviteLink(String inviteLink);
     List<Group> findByPrivacy(GroupPrivacy privacy);
     List<Group> findByPrivacyAndNameContainingOrPrivacyAndDescriptionContaining(GroupPrivacy privacy1, String name, GroupPrivacy privacy2, String description);
+    
+    // Count methods
+    int countByCreatorId(String creatorId);
 } 

@@ -4,6 +4,9 @@ import com.mahiberawi.dto.group.GroupMemberRequest;
 import com.mahiberawi.dto.group.GroupMemberResponse;
 import com.mahiberawi.dto.group.GroupRequest;
 import com.mahiberawi.dto.group.GroupResponse;
+import com.mahiberawi.dto.group.JoinByEmailRequest;
+import com.mahiberawi.dto.group.JoinByLinkRequest;
+import com.mahiberawi.dto.group.JoinResponse;
 import com.mahiberawi.dto.UserResponse;
 import com.mahiberawi.entity.Group;
 import com.mahiberawi.entity.GroupMember;
@@ -23,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.mahiberawi.dto.group.JoinGroupRequest;
@@ -35,6 +39,7 @@ public class GroupService {
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final EmailService emailService;
 
     @Transactional
     public GroupResponse createGroup(GroupRequest request, User creator) {
@@ -451,5 +456,205 @@ public class GroupService {
                 .success(true)
                 .message("Successfully joined the group")
                 .build();
+    }
+
+    @Transactional
+    public JoinResponse joinByEmail(JoinByEmailRequest request, User currentUser) {
+        String email = request.getEmail();
+        String groupCode = request.getGroupCode();
+        
+        // Check if email is different from current user's email
+        if (!email.equals(currentUser.getEmail())) {
+            // Send invitation email to the specified email
+            boolean emailSent = emailService.sendGroupInvitationEmail(email, groupCode, currentUser.getFullName());
+            
+            if (emailSent) {
+                return JoinResponse.builder()
+                        .success(true)
+                        .message("Invitation email sent successfully to " + email)
+                        .requiresVerification(false)
+                        .email(email)
+                        .build();
+            } else {
+                return JoinResponse.builder()
+                        .success(false)
+                        .message("Failed to send invitation email")
+                        .requiresVerification(false)
+                        .build();
+            }
+        } else {
+            // User is inviting themselves - check if group code is provided
+            if (groupCode != null && !groupCode.trim().isEmpty()) {
+                try {
+                    Group group = groupRepository.findByCode(groupCode)
+                            .orElseThrow(() -> new ResourceNotFoundException("Group not found with code: " + groupCode));
+                    
+                    // Check if user is already a member
+                    if (groupMemberRepository.existsByGroupAndUser(group, currentUser)) {
+                        return JoinResponse.builder()
+                                .success(false)
+                                .message("You are already a member of this group")
+                                .requiresVerification(false)
+                                .build();
+                    }
+                    
+                    // Join the group directly
+                    GroupMember member = GroupMember.builder()
+                            .group(group)
+                            .user(currentUser)
+                            .role(GroupMemberRole.MEMBER)
+                            .status(GroupMemberStatus.ACTIVE)
+                            .joinedAt(LocalDateTime.now())
+                            .build();
+                    groupMemberRepository.save(member);
+                    
+                    return JoinResponse.builder()
+                            .success(true)
+                            .message("Successfully joined the group")
+                            .requiresVerification(false)
+                            .group(mapToResponse(group))
+                            .build();
+                    
+                } catch (ResourceNotFoundException e) {
+                    return JoinResponse.builder()
+                            .success(false)
+                            .message("Invalid group code")
+                            .requiresVerification(false)
+                            .build();
+                }
+            } else {
+                // Send verification email to current user
+                String invitationToken = UUID.randomUUID().toString();
+                boolean emailSent = emailService.sendGroupInvitationVerificationEmail(email, invitationToken, currentUser.getFullName());
+                
+                if (emailSent) {
+                    return JoinResponse.builder()
+                            .success(false)
+                            .message("Verification email sent to " + email)
+                            .requiresVerification(true)
+                            .email(email)
+                            .invitationToken(invitationToken)
+                            .build();
+                } else {
+                    return JoinResponse.builder()
+                            .success(false)
+                            .message("Failed to send verification email")
+                            .requiresVerification(false)
+                            .build();
+                }
+            }
+        }
+    }
+
+    @Transactional
+    public JoinResponse joinByLink(JoinByLinkRequest request, User user) {
+        String invitationLink = request.getInvitationLink();
+        
+        try {
+            // Extract group ID and optional token from the link
+            // Expected format: https://mahiberawi.com/join/{groupId}?token={token}
+            String[] parts = invitationLink.split("/join/");
+            if (parts.length != 2) {
+                return JoinResponse.builder()
+                        .success(false)
+                        .message("Invalid invitation link format")
+                        .requiresVerification(false)
+                        .build();
+            }
+            
+            String groupIdAndParams = parts[1];
+            String groupId = groupIdAndParams.split("\\?")[0];
+            
+            Group group = groupRepository.findById(groupId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Group not found"));
+            
+            // Check if user is already a member
+            if (groupMemberRepository.existsByGroupAndUser(group, user)) {
+                return JoinResponse.builder()
+                        .success(false)
+                        .message("You are already a member of this group")
+                        .requiresVerification(false)
+                        .build();
+            }
+            
+            // Check if group is public or if invitation is valid
+            if (group.getPrivacy() == GroupPrivacy.PRIVATE) {
+                // For private groups, we might need to validate the invitation token
+                // For now, we'll allow joining if the link is valid
+                // TODO: Implement token validation for private groups
+            }
+            
+            // Join the group
+            GroupMember member = GroupMember.builder()
+                    .group(group)
+                    .user(user)
+                    .role(GroupMemberRole.MEMBER)
+                    .status(GroupMemberStatus.ACTIVE)
+                    .joinedAt(LocalDateTime.now())
+                    .build();
+            groupMemberRepository.save(member);
+            
+            return JoinResponse.builder()
+                    .success(true)
+                    .message("Successfully joined the group")
+                    .requiresVerification(false)
+                    .group(mapToResponse(group))
+                    .build();
+                    
+        } catch (ResourceNotFoundException e) {
+            return JoinResponse.builder()
+                    .success(false)
+                    .message("Group not found")
+                    .requiresVerification(false)
+                    .build();
+        } catch (Exception e) {
+            return JoinResponse.builder()
+                    .success(false)
+                    .message("Invalid invitation link")
+                    .requiresVerification(false)
+                    .build();
+        }
+    }
+
+    @Transactional
+    public JoinResponse verifyInvitation(String token) {
+        // TODO: Implement token verification logic
+        // This would typically involve:
+        // 1. Looking up the invitation by token
+        // 2. Checking if it's expired
+        // 3. Getting the associated group and user
+        // 4. Completing the joining process
+        
+        return JoinResponse.builder()
+                .success(false)
+                .message("Token verification not implemented yet")
+                .requiresVerification(false)
+                .build();
+    }
+
+    public ApiResponse generateQRCode(String groupId, User user) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group", "id", groupId));
+        
+        // Check if user is a member of the group
+        if (!groupMemberRepository.existsByGroupAndUser(group, user)) {
+            throw new UnauthorizedException("You are not a member of this group");
+        }
+        
+        // Generate invitation link
+        String invitationLink = "https://mahiberawi.com/join/" + groupId;
+        
+        // TODO: Generate actual QR code image
+        // For now, return the invitation link
+        
+        return ApiResponse.builder()
+                .success(true)
+                .message("QR code generated successfully")
+                .data(invitationLink)
+                .build();
+    }
+
+    public boolean userHasGroups(User user) {
+        return groupMemberRepository.existsByUserAndStatus(user, GroupMemberStatus.ACTIVE);
     }
 } 
