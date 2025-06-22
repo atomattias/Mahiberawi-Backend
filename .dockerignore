@@ -1,11 +1,8 @@
-# Git
-.git
-.gitignore
-.gitattributes
-
 # Maven
 target/
 !target/*.jar
+!target/classes/
+!target/test-classes/
 
 # IDE
 .idea/
@@ -18,17 +15,12 @@ target/
 .DS_Store
 Thumbs.db
 
+# Git
+.git/
+.gitignore
+
 # Logs
 *.log
-
-# Temporary files
-*.tmp
-*.temp
-
-# Documentation
-README.md
-HELP.md
-LICENSE
 
 # Node.js (if any)
 node_modules/
@@ -38,6 +30,17 @@ npm-debug.log*
 .env
 .env.local
 .env.production
+
+# Documentation
+README.md
+LICENSE
+
+# Test files
+src/test/
+
+# Temporary files
+*.tmp
+*.temp
 
 # Uploads (will be created at runtime)
 uploads/ 
