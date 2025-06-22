@@ -1,10 +1,10 @@
-# Use OpenJDK 17 as base image
-FROM openjdk:17-jdk-slim
+# Use Eclipse Temurin JDK 17 (more reliable than OpenJDK)
+FROM eclipse-temurin:17-jdk-alpine AS build
 
 # Set working directory
 WORKDIR /app
 
-# Copy the Maven wrapper and pom.xml
+# Copy Maven wrapper and pom.xml first for better caching
 COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
@@ -12,7 +12,7 @@ COPY pom.xml .
 # Make mvnw executable
 RUN chmod +x mvnw
 
-# Download dependencies
+# Download dependencies (this layer will be cached if pom.xml doesn't change)
 RUN ./mvnw dependency:go-offline -B
 
 # Copy source code
@@ -21,14 +21,14 @@ COPY src src
 # Build the application
 RUN ./mvnw clean package -DskipTests
 
-# Create a new stage for runtime
-FROM openjdk:17-jre-slim
+# Runtime stage
+FROM eclipse-temurin:17-jre-alpine
 
 # Set working directory
 WORKDIR /app
 
 # Copy the built jar from the build stage
-COPY --from=0 /app/target/*.jar app.jar
+COPY --from=build /app/target/*.jar app.jar
 
 # Create uploads directory
 RUN mkdir -p uploads
