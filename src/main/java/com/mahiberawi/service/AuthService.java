@@ -12,6 +12,7 @@ import com.mahiberawi.dto.auth.RegistrationResponse;
 import com.mahiberawi.entity.User;
 import com.mahiberawi.entity.UserRole;
 import com.mahiberawi.entity.UserStatus;
+import com.mahiberawi.entity.UserIntention;
 import com.mahiberawi.repository.UserRepository;
 import com.mahiberawi.repository.EmailVerificationCodeRepository;
 import com.mahiberawi.security.JwtService;
@@ -71,6 +72,7 @@ public class AuthService {
                 .lastName(request.getLastName())
                 .phone(request.getPhone())
                 .role(UserRole.MEMBER)
+                .intention(UserIntention.UNDECIDED)
                 .status(UserStatus.ACTIVE)
                 .isEmailVerified(false)
                 .isPhoneVerified(false)

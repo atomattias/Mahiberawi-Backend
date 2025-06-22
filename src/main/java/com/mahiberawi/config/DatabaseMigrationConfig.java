@@ -22,9 +22,13 @@ public class DatabaseMigrationConfig {
             log.info("Running database migration...");
             
             try {
-                // Add the intention column if it doesn't exist
-                jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS intention VARCHAR(20) DEFAULT 'UNDECIDED'");
+                // Add the intention column if it doesn't exist (allow NULL initially)
+                jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS intention VARCHAR(20)");
                 log.info("Added intention column to users table");
+                
+                // Set default value for existing NULL intention values
+                jdbcTemplate.update("UPDATE users SET intention = 'UNDECIDED' WHERE intention IS NULL");
+                log.info("Set default intention values for existing users");
                 
                 // Drop the existing role check constraint if it exists
                 try {
