@@ -369,4 +369,114 @@ public class EmailService {
             userName, invitationToken
         );
     }
+
+    /**
+     * Send enhanced group invitation email with expiration and custom message
+     */
+    @Transactional
+    public boolean sendEnhancedGroupInvitationEmail(String email, String groupName, String inviterName, 
+                                                   String invitationCode, LocalDateTime expiresAt, String customMessage) {
+        try {
+            log.info("Sending enhanced group invitation email to: {}", email);
+            
+            // Validate email configuration
+            if (fromEmail == null || fromEmail.equals("your-email@gmail.com")) {
+                log.error("Email configuration not set properly. Please configure spring.mail.username in application.properties");
+                return false;
+            }
+            
+            // Send email
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(email);
+            message.setSubject("You're Invited to Join " + groupName + " - Mahiberawi");
+            message.setText(buildEnhancedGroupInvitationEmailContent(inviterName, groupName, invitationCode, expiresAt, customMessage));
+            
+            log.debug("Attempting to send enhanced group invitation email from: {} to: {}", fromEmail, email);
+            mailSender.send(message);
+            log.info("Enhanced group invitation email sent successfully to: {}", email);
+            
+            return true;
+            
+        } catch (Exception e) {
+            log.error("Failed to send enhanced group invitation email to: {}", email, e);
+            return false;
+        }
+    }
+
+    /**
+     * Send SMS invitation (placeholder for SMS service integration)
+     */
+    @Transactional
+    public boolean sendSMSInvitation(String phone, String groupName, String inviterName, 
+                                   String invitationCode, LocalDateTime expiresAt, String customMessage) {
+        try {
+            log.info("Sending SMS invitation to: {}", phone);
+            
+            // TODO: Integrate with actual SMS service (Twilio, AWS SNS, etc.)
+            // For now, just log the SMS content
+            String smsContent = buildSMSInvitationContent(inviterName, groupName, invitationCode, expiresAt, customMessage);
+            log.info("SMS content for {}: {}", phone, smsContent);
+            
+            // In a real implementation, you would send the SMS here
+            // smsService.sendSMS(phone, smsContent);
+            
+            return true;
+            
+        } catch (Exception e) {
+            log.error("Failed to send SMS invitation to: {}", phone, e);
+            return false;
+        }
+    }
+
+    /**
+     * Generate unique invitation code
+     */
+    public String generateInvitationCode() {
+        // Generate a unique 8-character alphanumeric code
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        StringBuilder code = new StringBuilder();
+        Random random = new Random();
+        
+        for (int i = 0; i < 8; i++) {
+            code.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        
+        return code.toString();
+    }
+
+    private String buildEnhancedGroupInvitationEmailContent(String inviterName, String groupName, 
+                                                          String invitationCode, LocalDateTime expiresAt, String customMessage) {
+        StringBuilder content = new StringBuilder();
+        content.append("Hello!\n\n");
+        content.append(inviterName).append(" has invited you to join the group \"").append(groupName).append("\" on Mahiberawi.\n\n");
+        
+        if (customMessage != null && !customMessage.trim().isEmpty()) {
+            content.append("Message from ").append(inviterName).append(": ").append(customMessage).append("\n\n");
+        }
+        
+        content.append("To join the group, please use the following invitation code in the Mahiberawi app:\n");
+        content.append("Invitation Code: ").append(invitationCode).append("\n\n");
+        
+        content.append("This invitation will expire on: ").append(expiresAt.toString()).append("\n\n");
+        
+        content.append("If you don't have the Mahiberawi app, you can download it from your app store.\n\n");
+        content.append("Best regards,\nThe Mahiberawi Team");
+        
+        return content.toString();
+    }
+
+    private String buildSMSInvitationContent(String inviterName, String groupName, 
+                                           String invitationCode, LocalDateTime expiresAt, String customMessage) {
+        StringBuilder content = new StringBuilder();
+        content.append(inviterName).append(" invited you to join \"").append(groupName).append("\" on Mahiberawi. ");
+        content.append("Code: ").append(invitationCode).append(". ");
+        content.append("Expires: ").append(expiresAt.toString()).append(". ");
+        
+        if (customMessage != null && !customMessage.trim().isEmpty()) {
+            content.append("Message: ").append(customMessage);
+        }
+        
+        return content.toString();
+    }
 } 

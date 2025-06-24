@@ -38,6 +38,9 @@ public class GroupInvitation {
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 
+    @Column(name = "message", columnDefinition = "TEXT")
+    private String message;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

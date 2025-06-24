@@ -8,6 +8,8 @@ import com.mahiberawi.dto.group.JoinGroupRequest;
 import com.mahiberawi.dto.group.JoinByEmailRequest;
 import com.mahiberawi.dto.group.JoinByLinkRequest;
 import com.mahiberawi.dto.group.JoinResponse;
+import com.mahiberawi.dto.group.GroupInvitationRequest;
+import com.mahiberawi.dto.group.GroupInvitationResponse;
 import com.mahiberawi.entity.User;
 import com.mahiberawi.entity.enums.GroupMemberRole;
 import com.mahiberawi.service.GroupService;
@@ -503,5 +505,106 @@ public class GroupController {
                 .message(hasGroups ? "User has groups" : "User has no groups")
                 .data(hasGroups)
                 .build());
+    }
+
+    // ========== ENHANCED GROUP INVITATION ENDPOINTS ==========
+
+    @Operation(
+        summary = "Create group invitation",
+        description = "Creates a new group invitation via email, SMS, or generates a unique invitation code. " +
+                     "Only admins and moderators can create invitations."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Invitation created successfully",
+            content = @Content(schema = @Schema(implementation = GroupInvitationResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid invitation request"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to create invitations"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @PostMapping("/invitations")
+    public ResponseEntity<GroupInvitationResponse> createGroupInvitation(
+            @Parameter(description = "Invitation details", required = true)
+            @Valid @RequestBody GroupInvitationRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        GroupInvitationResponse invitation = groupService.createGroupInvitation(request, user);
+        return ResponseEntity.ok(invitation);
+    }
+
+    @Operation(
+        summary = "Get group invitations",
+        description = "Retrieves all invitations for a specific group. " +
+                     "Only admins and moderators can view invitations."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Invitations retrieved successfully",
+            content = @Content(schema = @Schema(implementation = GroupInvitationResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to view invitations"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @GetMapping("/{groupId}/invitations")
+    public ResponseEntity<List<GroupInvitationResponse>> getGroupInvitations(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<GroupInvitationResponse> invitations = groupService.getGroupInvitations(groupId, user);
+        return ResponseEntity.ok(invitations);
+    }
+
+    @Operation(
+        summary = "Revoke group invitation",
+        description = "Revokes a pending group invitation. " +
+                     "Only admins and moderators can revoke invitations."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Invitation revoked successfully"),
+        @ApiResponse(responseCode = "400", description = "Cannot revoke non-pending invitation"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to revoke invitations"),
+        @ApiResponse(responseCode = "404", description = "Invitation not found")
+    })
+    @DeleteMapping("/invitations/{invitationId}")
+    public ResponseEntity<Void> revokeInvitation(
+            @Parameter(description = "ID of the invitation to revoke", required = true)
+            @PathVariable String invitationId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        groupService.revokeInvitation(invitationId, user);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+        summary = "Join group with invitation code",
+        description = "Joins a group using a valid invitation code. " +
+                     "The invitation code must be valid and not expired."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Successfully joined the group",
+            content = @Content(schema = @Schema(implementation = GroupResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid or expired invitation code"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "404", description = "Invitation not found"),
+        @ApiResponse(responseCode = "409", description = "Already a member of the group")
+    })
+    @PostMapping("/join-with-code")
+    public ResponseEntity<GroupResponse> joinWithInvitationCode(
+            @Parameter(description = "Invitation code", required = true)
+            @RequestParam String code,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        GroupResponse group = groupService.joinWithInvitationCode(code, user);
+        return ResponseEntity.ok(group);
     }
 } 
