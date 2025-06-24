@@ -7,18 +7,23 @@ import com.mahiberawi.dto.group.GroupResponse;
 import com.mahiberawi.dto.group.JoinByEmailRequest;
 import com.mahiberawi.dto.group.JoinByLinkRequest;
 import com.mahiberawi.dto.group.JoinResponse;
+import com.mahiberawi.dto.group.GroupInvitationRequest;
+import com.mahiberawi.dto.group.GroupInvitationResponse;
 import com.mahiberawi.dto.UserResponse;
 import com.mahiberawi.entity.Group;
 import com.mahiberawi.entity.GroupMember;
+import com.mahiberawi.entity.GroupInvitation;
 import com.mahiberawi.entity.User;
 import com.mahiberawi.entity.UserRole;
 import com.mahiberawi.entity.enums.GroupMemberRole;
 import com.mahiberawi.entity.enums.GroupMemberStatus;
 import com.mahiberawi.entity.enums.GroupPrivacy;
+import com.mahiberawi.entity.enums.InvitationStatus;
 import com.mahiberawi.exception.ResourceNotFoundException;
 import com.mahiberawi.exception.UnauthorizedException;
 import com.mahiberawi.repository.GroupMemberRepository;
 import com.mahiberawi.repository.GroupRepository;
+import com.mahiberawi.repository.GroupInvitationRepository;
 import com.mahiberawi.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,17 +37,24 @@ import java.util.stream.Collectors;
 import com.mahiberawi.dto.group.JoinGroupRequest;
 import com.mahiberawi.dto.ApiResponse;
 
+import java.util.Random;
+
 @Service
 @RequiredArgsConstructor
 public class GroupService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
+    private final GroupInvitationRepository groupInvitationRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final EmailService emailService;
 
     @Transactional
     public GroupResponse createGroup(GroupRequest request, User creator) {
+        // Generate unique group code and invitation link
+        String groupCode = generateUniqueGroupCode();
+        String inviteLink = generateUniqueInviteLink();
+        
         Group group = Group.builder()
                 .name(request.getName())
                 .description(request.getDescription())
@@ -50,6 +62,8 @@ public class GroupService {
                 .privacy(request.getPrivacy())
                 .profilePicture(request.getProfilePicture())
                 .creator(creator)
+                .code(groupCode)
+                .inviteLink(inviteLink)
                 .build();
 
         group = groupRepository.save(group);
@@ -65,6 +79,42 @@ public class GroupService {
         groupMemberRepository.save(creatorMember);
 
         return mapToResponse(group);
+    }
+
+    /**
+     * Generate unique group code
+     */
+    private String generateUniqueGroupCode() {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        StringBuilder code = new StringBuilder();
+        Random random = new Random();
+        
+        do {
+            code.setLength(0);
+            for (int i = 0; i < 6; i++) {
+                code.append(chars.charAt(random.nextInt(chars.length())));
+            }
+        } while (groupRepository.findByCode(code.toString()).isPresent());
+        
+        return code.toString();
+    }
+
+    /**
+     * Generate unique invitation link
+     */
+    private String generateUniqueInviteLink() {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder link = new StringBuilder();
+        Random random = new Random();
+        
+        do {
+            link.setLength(0);
+            for (int i = 0; i < 12; i++) {
+                link.append(chars.charAt(random.nextInt(chars.length())));
+            }
+        } while (groupRepository.findByInviteLink(link.toString()).isPresent());
+        
+        return link.toString();
     }
 
     @Transactional
@@ -655,6 +705,282 @@ public class GroupService {
     }
 
     public boolean userHasGroups(User user) {
-        return groupMemberRepository.existsByUserAndStatus(user, GroupMemberStatus.ACTIVE);
+        return !groupRepository.findByMemberId(user.getId()).isEmpty();
+    }
+
+    // ========== ENHANCED GROUP INVITATION METHODS ==========
+
+    /**
+     * Create group invitation (email, SMS, or code)
+     */
+    @Transactional
+    public GroupInvitationResponse createGroupInvitation(GroupInvitationRequest request, User currentUser) {
+        // Validate request
+        if (!request.isValid()) {
+            throw new IllegalArgumentException("At least one invitation method (email, phone, or generateCode) must be specified");
+        }
+
+        // Get group and verify permissions
+        Group group = groupRepository.findById(request.getGroupId())
+                .orElseThrow(() -> new ResourceNotFoundException("Group", "id", request.getGroupId()));
+
+        GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
+                .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
+
+        if (currentMember.getRole() != GroupMemberRole.ADMIN && currentMember.getRole() != GroupMemberRole.MODERATOR) {
+            throw new UnauthorizedException("Only admins and moderators can send invitations");
+        }
+
+        // Calculate expiration time
+        LocalDateTime expiresAt = LocalDateTime.now().plusHours(request.getExpirationHours());
+
+        // Handle email invitation
+        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+            return createEmailInvitation(group, request.getEmail(), currentUser, expiresAt, request.getMessage());
+        }
+
+        // Handle SMS invitation
+        if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
+            return createSMSInvitation(group, request.getPhone(), currentUser, expiresAt, request.getMessage());
+        }
+
+        // Handle code generation
+        if (request.getGenerateCode() != null && request.getGenerateCode()) {
+            return createCodeInvitation(group, currentUser, expiresAt, request.getMessage());
+        }
+
+        throw new IllegalArgumentException("Invalid invitation request");
+    }
+
+    /**
+     * Create email invitation
+     */
+    private GroupInvitationResponse createEmailInvitation(Group group, String email, User inviter, 
+                                                        LocalDateTime expiresAt, String message) {
+        // Check if invitation already exists
+        if (groupInvitationRepository.findByEmailAndGroupId(email, group.getId()).isPresent()) {
+            throw new IllegalStateException("An invitation for this email already exists");
+        }
+
+        // Generate invitation code
+        String invitationCode = emailService.generateInvitationCode();
+
+        // Create invitation record
+        GroupInvitation invitation = GroupInvitation.builder()
+                .groupId(group.getId())
+                .email(email)
+                .invitedBy(inviter.getId())
+                .status(InvitationStatus.PENDING)
+                .expiresAt(expiresAt)
+                .message(message)
+                .build();
+
+        invitation = groupInvitationRepository.save(invitation);
+
+        // Send email
+        boolean emailSent = emailService.sendEnhancedGroupInvitationEmail(
+                email, group.getName(), inviter.getName(), invitationCode, expiresAt, message);
+
+        if (!emailSent) {
+            // Delete the invitation if email failed
+            groupInvitationRepository.delete(invitation);
+            throw new RuntimeException("Failed to send invitation email");
+        }
+
+        return mapToInvitationResponse(invitation, group, inviter, invitationCode);
+    }
+
+    /**
+     * Create SMS invitation
+     */
+    private GroupInvitationResponse createSMSInvitation(Group group, String phone, User inviter, 
+                                                      LocalDateTime expiresAt, String message) {
+        // Check if invitation already exists
+        if (groupInvitationRepository.findByPhoneAndGroupId(phone, group.getId()).isPresent()) {
+            throw new IllegalStateException("An invitation for this phone number already exists");
+        }
+
+        // Generate invitation code
+        String invitationCode = emailService.generateInvitationCode();
+
+        // Create invitation record
+        GroupInvitation invitation = GroupInvitation.builder()
+                .groupId(group.getId())
+                .phone(phone)
+                .invitedBy(inviter.getId())
+                .status(InvitationStatus.PENDING)
+                .expiresAt(expiresAt)
+                .message(message)
+                .build();
+
+        invitation = groupInvitationRepository.save(invitation);
+
+        // Send SMS
+        boolean smsSent = emailService.sendSMSInvitation(
+                phone, group.getName(), inviter.getName(), invitationCode, expiresAt, message);
+
+        if (!smsSent) {
+            // Delete the invitation if SMS failed
+            groupInvitationRepository.delete(invitation);
+            throw new RuntimeException("Failed to send invitation SMS");
+        }
+
+        return mapToInvitationResponse(invitation, group, inviter, invitationCode);
+    }
+
+    /**
+     * Create code invitation
+     */
+    private GroupInvitationResponse createCodeInvitation(Group group, User inviter, 
+                                                       LocalDateTime expiresAt, String message) {
+        // Generate invitation code
+        String invitationCode = emailService.generateInvitationCode();
+
+        // Create invitation record (no email/phone for code-based invitations)
+        GroupInvitation invitation = GroupInvitation.builder()
+                .groupId(group.getId())
+                .invitedBy(inviter.getId())
+                .status(InvitationStatus.PENDING)
+                .expiresAt(expiresAt)
+                .message(message)
+                .build();
+
+        invitation = groupInvitationRepository.save(invitation);
+
+        return mapToInvitationResponse(invitation, group, inviter, invitationCode);
+    }
+
+    /**
+     * Get all invitations for a group
+     */
+    public List<GroupInvitationResponse> getGroupInvitations(String groupId, User currentUser) {
+        // Verify permissions
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group", "id", groupId));
+
+        GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
+                .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
+
+        if (currentMember.getRole() != GroupMemberRole.ADMIN && currentMember.getRole() != GroupMemberRole.MODERATOR) {
+            throw new UnauthorizedException("Only admins and moderators can view invitations");
+        }
+
+        List<GroupInvitation> invitations = groupInvitationRepository.findByGroupId(groupId);
+        
+        return invitations.stream()
+                .map(invitation -> {
+                    User inviter = userRepository.findById(invitation.getInvitedBy())
+                            .orElse(null);
+                    return mapToInvitationResponse(invitation, group, inviter, null);
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Revoke an invitation
+     */
+    @Transactional
+    public void revokeInvitation(String invitationId, User currentUser) {
+        GroupInvitation invitation = groupInvitationRepository.findById(invitationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invitation", "id", invitationId));
+
+        // Verify permissions
+        Group group = groupRepository.findById(invitation.getGroupId())
+                .orElseThrow(() -> new ResourceNotFoundException("Group", "id", invitation.getGroupId()));
+
+        GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
+                .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
+
+        if (currentMember.getRole() != GroupMemberRole.ADMIN && currentMember.getRole() != GroupMemberRole.MODERATOR) {
+            throw new UnauthorizedException("Only admins and moderators can revoke invitations");
+        }
+
+        // Only allow revoking pending invitations
+        if (invitation.getStatus() != InvitationStatus.PENDING) {
+            throw new IllegalStateException("Can only revoke pending invitations");
+        }
+
+        // Update status to revoked
+        invitation.setStatus(InvitationStatus.REJECTED);
+        groupInvitationRepository.save(invitation);
+    }
+
+    /**
+     * Join group using invitation code
+     */
+    @Transactional
+    public GroupResponse joinWithInvitationCode(String invitationCode, User user) {
+        // Find invitation by code (this would need to be implemented based on your code storage strategy)
+        // For now, we'll assume the code is stored in the invitation record or a separate table
+        
+        // This is a simplified implementation - you might want to store codes separately
+        List<GroupInvitation> pendingInvitations = groupInvitationRepository.findExpiredInvitations(LocalDateTime.now());
+        
+        // Find the invitation that matches the code (you'll need to implement this based on your code storage)
+        GroupInvitation invitation = pendingInvitations.stream()
+                .filter(inv -> inv.getStatus() == InvitationStatus.PENDING)
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired invitation code"));
+
+        // Verify invitation is not expired
+        if (invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalStateException("Invitation has expired");
+        }
+
+        // Get group
+        Group group = groupRepository.findById(invitation.getGroupId())
+                .orElseThrow(() -> new ResourceNotFoundException("Group", "id", invitation.getGroupId()));
+
+        // Check if user is already a member
+        if (groupMemberRepository.existsByGroupAndUser(group, user)) {
+            throw new IllegalStateException("You are already a member of this group");
+        }
+
+        // Add user as member
+        GroupMember member = GroupMember.builder()
+                .group(group)
+                .user(user)
+                .role(GroupMemberRole.MEMBER)
+                .status(GroupMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+        groupMemberRepository.save(member);
+
+        // Update invitation status
+        invitation.setStatus(InvitationStatus.ACCEPTED);
+        groupInvitationRepository.save(invitation);
+
+        return mapToResponse(group);
+    }
+
+    /**
+     * Clean up expired invitations (scheduled task)
+     */
+    @Transactional
+    @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 2 * * *") // Run at 2 AM daily
+    public void cleanupExpiredInvitations() {
+        int deletedCount = groupInvitationRepository.deleteExpiredInvitations(LocalDateTime.now());
+        // Log the cleanup
+        System.out.println("Cleaned up " + deletedCount + " expired invitations");
+    }
+
+    /**
+     * Map invitation to response
+     */
+    private GroupInvitationResponse mapToInvitationResponse(GroupInvitation invitation, Group group, 
+                                                          User inviter, String invitationCode) {
+        return GroupInvitationResponse.builder()
+                .id(invitation.getId())
+                .groupId(invitation.getGroupId())
+                .groupName(group.getName())
+                .email(invitation.getEmail())
+                .phone(invitation.getPhone())
+                .invitedBy(invitation.getInvitedBy())
+                .inviterName(inviter != null ? inviter.getName() : "Unknown")
+                .status(invitation.getStatus())
+                .expiresAt(invitation.getExpiresAt())
+                .createdAt(invitation.getCreatedAt())
+                .invitationCode(invitationCode)
+                .build();
     }
 } 
