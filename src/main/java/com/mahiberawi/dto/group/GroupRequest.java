@@ -22,4 +22,17 @@ public class GroupRequest {
     private GroupPrivacy privacy = GroupPrivacy.PRIVATE;
 
     private String profilePicture;
+
+    // Group settings
+    private GroupSettings settings;
+
+    @Data
+    public static class GroupSettings {
+        private Boolean allowEventCreation = true;
+        private Boolean allowMemberInvites = true;
+        private Boolean allowMessagePosting = true;
+        private Boolean paymentRequired = false;
+        private Boolean requireApproval = false;
+        private Double monthlyDues;
+    }
 } 

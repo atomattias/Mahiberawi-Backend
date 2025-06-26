@@ -21,4 +21,12 @@ public class GroupResponse {
     private int memberCount;
     private GroupMemberRole userRole; // User's role in this group
     private LocalDateTime createdAt;
+    
+    // Group settings
+    private Boolean allowEventCreation;
+    private Boolean allowMemberInvites;
+    private Boolean allowMessagePosting;
+    private Boolean paymentRequired;
+    private Boolean requireApproval;
+    private Double monthlyDues;
 } 

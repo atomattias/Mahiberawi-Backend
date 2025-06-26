@@ -64,19 +64,37 @@ public class GroupService {
                 .creator(creator)
                 .code(groupCode)
                 .inviteLink(inviteLink)
+                .memberCount(0) // Initialize member count to 0
                 .build();
+
+        // Set group settings if provided
+        if (request.getSettings() != null) {
+            GroupRequest.GroupSettings settings = request.getSettings();
+            group.setAllowEventCreation(settings.getAllowEventCreation());
+            group.setAllowMemberInvites(settings.getAllowMemberInvites());
+            group.setAllowMessagePosting(settings.getAllowMessagePosting());
+            group.setPaymentRequired(settings.getPaymentRequired());
+            group.setRequireApproval(settings.getRequireApproval());
+            group.setMonthlyDues(settings.getMonthlyDues());
+        }
 
         group = groupRepository.save(group);
 
         // Add creator as admin
         GroupMember creatorMember = GroupMember.builder()
-                .group(group)
-                .user(creator)
+                .groupId(group.getId()) // Set the groupId string field
+                .userId(creator.getId()) // Set the userId string field
+                .group(group) // Set the group object
+                .user(creator) // Set the user object
                 .role(GroupMemberRole.ADMIN)
                 .status(GroupMemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
                 .build();
         groupMemberRepository.save(creatorMember);
+
+        // Update group member count
+        group.setMemberCount(group.getMemberCount() + 1);
+        group = groupRepository.save(group);
 
         return mapToResponse(group);
     }
@@ -162,6 +180,18 @@ public class GroupService {
         group.setDescription(request.getDescription());
         group.setType(request.getType());
         group.setPrivacy(request.getPrivacy());
+        
+        // Update group settings if provided
+        if (request.getSettings() != null) {
+            GroupRequest.GroupSettings settings = request.getSettings();
+            group.setAllowEventCreation(settings.getAllowEventCreation());
+            group.setAllowMemberInvites(settings.getAllowMemberInvites());
+            group.setAllowMessagePosting(settings.getAllowMessagePosting());
+            group.setPaymentRequired(settings.getPaymentRequired());
+            group.setRequireApproval(settings.getRequireApproval());
+            group.setMonthlyDues(settings.getMonthlyDues());
+        }
+        
         group = groupRepository.save(group);
 
         return mapToResponse(group);
@@ -186,13 +216,19 @@ public class GroupService {
         }
 
         GroupMember member = GroupMember.builder()
-                .group(group)
-                .user(user)
+                .groupId(groupId) // Set the groupId string field
+                .userId(userId) // Set the userId string field
+                .group(group) // Set the group object
+                .user(user) // Set the user object
                 .role(GroupMemberRole.MEMBER)
                 .status(GroupMemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
                 .build();
         groupMemberRepository.save(member);
+
+        // Update group member count
+        group.setMemberCount(group.getMemberCount() + 1);
+        group = groupRepository.save(group);
 
         return mapToResponse(group);
     }
@@ -228,13 +264,19 @@ public class GroupService {
         }
 
         GroupMember member = GroupMember.builder()
-                .group(group)
-                .user(user)
+                .groupId(group.getId()) // Set the groupId string field
+                .userId(user.getId()) // Set the userId string field
+                .group(group) // Set the group object
+                .user(user) // Set the user object
                 .role(GroupMemberRole.MEMBER)
                 .status(GroupMemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
                 .build();
         groupMemberRepository.save(member);
+
+        // Update group member count
+        group.setMemberCount(group.getMemberCount() + 1);
+        group = groupRepository.save(group);
 
         return mapToResponse(group);
     }
@@ -249,13 +291,19 @@ public class GroupService {
         }
 
         GroupMember member = GroupMember.builder()
-                .group(group)
-                .user(user)
+                .groupId(group.getId()) // Set the groupId string field
+                .userId(user.getId()) // Set the userId string field
+                .group(group) // Set the group object
+                .user(user) // Set the user object
                 .role(GroupMemberRole.MEMBER)
                 .status(GroupMemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
                 .build();
         groupMemberRepository.save(member);
+
+        // Update group member count
+        group.setMemberCount(group.getMemberCount() + 1);
+        group = groupRepository.save(group);
 
         return mapToResponse(group);
     }
@@ -278,6 +326,12 @@ public class GroupService {
                 .inviteLink(group.getInviteLink())
                 .memberCount(group.getMemberCount())
                 .createdAt(group.getCreatedAt())
+                .allowEventCreation(group.getAllowEventCreation())
+                .allowMemberInvites(group.getAllowMemberInvites())
+                .allowMessagePosting(group.getAllowMessagePosting())
+                .paymentRequired(group.getPaymentRequired())
+                .requireApproval(group.getRequireApproval())
+                .monthlyDues(group.getMonthlyDues())
                 .build();
     }
 
@@ -319,8 +373,10 @@ public class GroupService {
 
         // Create member record
         GroupMember member = GroupMember.builder()
-                .group(group)
-                .user(userToInvite)
+                .groupId(group.getId()) // Set the groupId string field
+                .userId(userToInvite.getId()) // Set the userId string field
+                .group(group) // Set the group object
+                .user(userToInvite) // Set the user object
                 .role(request.getRole())
                 .status(GroupMemberStatus.PENDING)
                 .invitedBy(currentUser)
@@ -373,6 +429,10 @@ public class GroupService {
         // Remove member
         groupMemberRepository.delete(memberToRemove);
 
+        // Update group member count
+        group.setMemberCount(Math.max(0, group.getMemberCount() - 1));
+        groupRepository.save(group);
+
         // Send notification about removal
         notificationService.sendMemberRemovedNotification(memberToRemove);
 
@@ -401,6 +461,10 @@ public class GroupService {
 
         // Remove member
         groupMemberRepository.delete(member);
+
+        // Update group member count (only if group is not being deleted)
+        group.setMemberCount(Math.max(0, group.getMemberCount() - 1));
+        groupRepository.save(group);
 
         // Send notification about leaving
         notificationService.sendMemberLeftNotification(member);
@@ -467,6 +531,12 @@ public class GroupService {
                 .inviteLink(group.getInviteLink())
                 .memberCount(group.getMemberCount())
                 .createdAt(group.getCreatedAt())
+                .allowEventCreation(group.getAllowEventCreation())
+                .allowMemberInvites(group.getAllowMemberInvites())
+                .allowMessagePosting(group.getAllowMessagePosting())
+                .paymentRequired(group.getPaymentRequired())
+                .requireApproval(group.getRequireApproval())
+                .monthlyDues(group.getMonthlyDues())
                 .build();
     }
 
@@ -487,8 +557,10 @@ public class GroupService {
 
         // Add user as member
         GroupMember member = GroupMember.builder()
-                .group(group)
-                .user(user)
+                .groupId(group.getId()) // Set the groupId string field
+                .userId(user.getId()) // Set the userId string field
+                .group(group) // Set the group object
+                .user(user) // Set the user object
                 .role(GroupMemberRole.MEMBER)
                 .status(GroupMemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
@@ -550,13 +622,19 @@ public class GroupService {
                     
                     // Join the group directly
                     GroupMember member = GroupMember.builder()
-                            .group(group)
-                            .user(currentUser)
+                            .groupId(group.getId()) // Set the groupId string field
+                            .userId(currentUser.getId()) // Set the userId string field
+                            .group(group) // Set the group object
+                            .user(currentUser) // Set the user object
                             .role(GroupMemberRole.MEMBER)
                             .status(GroupMemberStatus.ACTIVE)
                             .joinedAt(LocalDateTime.now())
                             .build();
                     groupMemberRepository.save(member);
+                    
+                    // Update group member count
+                    group.setMemberCount(group.getMemberCount() + 1);
+                    group = groupRepository.save(group);
                     
                     return JoinResponse.builder()
                             .success(true)
@@ -636,13 +714,19 @@ public class GroupService {
             
             // Join the group
             GroupMember member = GroupMember.builder()
-                    .group(group)
-                    .user(user)
+                    .groupId(group.getId()) // Set the groupId string field
+                    .userId(user.getId()) // Set the userId string field
+                    .group(group) // Set the group object
+                    .user(user) // Set the user object
                     .role(GroupMemberRole.MEMBER)
                     .status(GroupMemberStatus.ACTIVE)
                     .joinedAt(LocalDateTime.now())
                     .build();
             groupMemberRepository.save(member);
+            
+            // Update group member count
+            group.setMemberCount(group.getMemberCount() + 1);
+            group = groupRepository.save(group);
             
             return JoinResponse.builder()
                     .success(true)
@@ -938,13 +1022,19 @@ public class GroupService {
 
         // Add user as member
         GroupMember member = GroupMember.builder()
-                .group(group)
-                .user(user)
+                .groupId(group.getId()) // Set the groupId string field
+                .userId(user.getId()) // Set the userId string field
+                .group(group) // Set the group object
+                .user(user) // Set the user object
                 .role(GroupMemberRole.MEMBER)
                 .status(GroupMemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
                 .build();
         groupMemberRepository.save(member);
+
+        // Update group member count
+        group.setMemberCount(group.getMemberCount() + 1);
+        group = groupRepository.save(group);
 
         // Update invitation status
         invitation.setStatus(InvitationStatus.ACCEPTED);
