@@ -51,6 +51,25 @@ public class Group {
     @Column(name = "profile_picture")
     private String profilePicture;
 
+    // Group settings
+    @Column(name = "allow_event_creation")
+    private Boolean allowEventCreation = true;
+
+    @Column(name = "allow_member_invites")
+    private Boolean allowMemberInvites = true;
+
+    @Column(name = "allow_message_posting")
+    private Boolean allowMessagePosting = true;
+
+    @Column(name = "payment_required")
+    private Boolean paymentRequired = false;
+
+    @Column(name = "require_approval")
+    private Boolean requireApproval = false;
+
+    @Column(name = "monthly_dues")
+    private Double monthlyDues;
+
     @ManyToOne
     @JoinColumn(name = "creator_id", nullable = false)
     private User creator;
