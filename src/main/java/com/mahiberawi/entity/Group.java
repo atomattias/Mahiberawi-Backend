@@ -5,6 +5,8 @@ import com.mahiberawi.entity.enums.GroupPrivacy;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -15,6 +17,8 @@ import java.util.Set;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "groups")
 @EntityListeners(AuditingEntityListener.class)
@@ -34,6 +38,7 @@ public class Group {
     private GroupType type;
 
     @Enumerated(EnumType.STRING)
+    @Builder.Default
     private GroupPrivacy privacy = GroupPrivacy.PRIVATE;
 
     @Column(unique = true, nullable = false)
@@ -46,6 +51,7 @@ public class Group {
     private String createdBy;
 
     @Column(name = "member_count")
+    @Builder.Default
     private int memberCount = 0;
 
     @Column(name = "profile_picture")
@@ -53,18 +59,23 @@ public class Group {
 
     // Group settings
     @Column(name = "allow_event_creation")
+    @Builder.Default
     private Boolean allowEventCreation = true;
 
     @Column(name = "allow_member_invites")
+    @Builder.Default
     private Boolean allowMemberInvites = true;
 
     @Column(name = "allow_message_posting")
+    @Builder.Default
     private Boolean allowMessagePosting = true;
 
     @Column(name = "payment_required")
+    @Builder.Default
     private Boolean paymentRequired = false;
 
     @Column(name = "require_approval")
+    @Builder.Default
     private Boolean requireApproval = false;
 
     @Column(name = "monthly_dues")
@@ -74,13 +85,16 @@ public class Group {
     @JoinColumn(name = "creator_id", nullable = false)
     private User creator;
 
-    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
     private Set<GroupMember> members = new HashSet<>();
 
-    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
     private Set<Event> events = new HashSet<>();
 
-    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
     private Set<Message> messages = new HashSet<>();
 
     @CreatedDate
