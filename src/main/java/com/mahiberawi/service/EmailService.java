@@ -233,7 +233,7 @@ public class EmailService {
     private String buildVerificationEmailContent(String userName, String code) {
         return String.format(
             "Hello %s,\n\n" +
-            "Thank you for registering with Mahiberawi! Please use the following verification code to complete your registration:\n\n" +
+            "Thank you for registering with Dewel! Please use the following verification code to complete your registration:\n\n" +
             "Verification Code: %s\n\n" +
             "This code will expire in %d minutes.\n\n" +
             "If you didn't create an account with us, please ignore this email.\n\n" +
