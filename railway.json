@@ -10,5 +10,8 @@
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 300,
     "startCommand": "./start.sh"
+  },
+  "variables": {
+    "SPRING_PROFILES_ACTIVE": "railway"
   }
 } 

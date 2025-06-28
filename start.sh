@@ -19,6 +19,9 @@ fi
 # Set Java options
 export JAVA_OPTS="-Xmx512m -Xms256m"
 
+# Set Spring profile for Railway
+export SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-railway}
+
 # Start the application
-echo "☕ Starting Java application..."
-exec java $JAVA_OPTS -jar app.jar 
+echo "☕ Starting Java application with profile: $SPRING_PROFILES_ACTIVE"
+exec java $JAVA_OPTS -Dspring.profiles.active=$SPRING_PROFILES_ACTIVE -jar app.jar 
