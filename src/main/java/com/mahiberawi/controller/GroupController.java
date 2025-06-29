@@ -186,6 +186,48 @@ public class GroupController {
     }
 
     @Operation(
+        summary = "Get user's groups (alternative endpoint)",
+        description = "Alternative endpoint to retrieve all groups the current user is a member of. " +
+                     "This endpoint provides the same functionality as /user for frontend compatibility."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Groups retrieved successfully",
+            content = @Content(schema = @Schema(implementation = GroupResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @GetMapping("/my-groups")
+    public ResponseEntity<List<GroupResponse>> getMyGroups(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<GroupResponse> groups = groupService.getGroupsByUser(user);
+        return ResponseEntity.ok(groups);
+    }
+
+    @Operation(
+        summary = "Get user's group memberships",
+        description = "Retrieves detailed membership information for all groups the current user belongs to, " +
+                     "including role, join date, and status."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Memberships retrieved successfully",
+            content = @Content(schema = @Schema(implementation = GroupMemberResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @GetMapping("/memberships")
+    public ResponseEntity<List<GroupMemberResponse>> getMyMemberships(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<GroupMemberResponse> memberships = groupService.getUserMemberships(user);
+        return ResponseEntity.ok(memberships);
+    }
+
+    @Operation(
         summary = "Invite member to group",
         description = "Sends an invitation to a user to join the group"
     )
@@ -957,5 +999,28 @@ public class GroupController {
                 .message("User's group payments retrieved successfully")
                 .data(payments)
                 .build());
+    }
+
+    // ========== ALTERNATIVE USER GROUPS ENDPOINT ==========
+
+    @Operation(
+        summary = "Get user's groups (user endpoint)",
+        description = "Alternative endpoint to retrieve all groups the current user is a member of. " +
+                     "This endpoint is mapped under /user/groups for frontend compatibility."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Groups retrieved successfully",
+            content = @Content(schema = @Schema(implementation = GroupResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @GetMapping("/user/groups")
+    public ResponseEntity<List<GroupResponse>> getUserGroupsAlternative(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<GroupResponse> groups = groupService.getGroupsByUser(user);
+        return ResponseEntity.ok(groups);
     }
 } 
