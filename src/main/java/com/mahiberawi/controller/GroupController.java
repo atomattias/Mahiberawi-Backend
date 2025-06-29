@@ -10,6 +10,7 @@ import com.mahiberawi.dto.group.JoinByLinkRequest;
 import com.mahiberawi.dto.group.JoinResponse;
 import com.mahiberawi.dto.group.GroupInvitationRequest;
 import com.mahiberawi.dto.group.GroupInvitationResponse;
+import com.mahiberawi.dto.group.UpdateRoleRequest;
 import com.mahiberawi.entity.User;
 import com.mahiberawi.entity.enums.GroupMemberRole;
 import com.mahiberawi.service.GroupService;
@@ -606,5 +607,355 @@ public class GroupController {
             @AuthenticationPrincipal User user) {
         GroupResponse group = groupService.joinWithInvitationCode(code, user);
         return ResponseEntity.ok(group);
+    }
+
+    // ========== GROUP-SPECIFIC ACTIVITIES ENDPOINTS ==========
+
+    @Operation(
+        summary = "Get group events",
+        description = "Retrieves all events for a specific group. Only accessible by group members."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Events retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not a member of the group"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @GetMapping("/{groupId}/events")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getGroupEvents(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<com.mahiberawi.dto.event.EventResponse> events = groupService.getGroupEvents(groupId, user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Group events retrieved successfully")
+                .data(events)
+                .build());
+    }
+
+    @Operation(
+        summary = "Create group event",
+        description = "Creates a new event for a specific group. Only admins and moderators can create events."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Event created successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid event details"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to create events"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @PostMapping("/{groupId}/events")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> createGroupEvent(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(description = "Event creation details", required = true)
+            @Valid @RequestBody com.mahiberawi.dto.event.EventRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        com.mahiberawi.dto.event.EventResponse event = groupService.createGroupEvent(groupId, request, user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Event created successfully")
+                .data(event)
+                .build());
+    }
+
+    @Operation(
+        summary = "Get group posts",
+        description = "Retrieves all posts/messages for a specific group. Only accessible by group members."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Posts retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not a member of the group"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @GetMapping("/{groupId}/posts")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getGroupPosts(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<com.mahiberawi.dto.message.MessageResponse> posts = groupService.getGroupPosts(groupId, user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Group posts retrieved successfully")
+                .data(posts)
+                .build());
+    }
+
+    @Operation(
+        summary = "Create group post",
+        description = "Creates a new post/message for a specific group. Only group members can create posts."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Post created successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid post details"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not a member of the group"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @PostMapping("/{groupId}/posts")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> createGroupPost(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(description = "Post creation details", required = true)
+            @Valid @RequestBody com.mahiberawi.dto.message.MessageRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        com.mahiberawi.dto.message.MessageResponse post = groupService.createGroupPost(groupId, request, user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Post created successfully")
+                .data(post)
+                .build());
+    }
+
+    @Operation(
+        summary = "Get group payments",
+        description = "Retrieves all payments for a specific group. Only accessible by group members."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Payments retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not a member of the group"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @GetMapping("/{groupId}/payments")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getGroupPayments(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<com.mahiberawi.dto.payment.PaymentResponse> payments = groupService.getGroupPayments(groupId, user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Group payments retrieved successfully")
+                .data(payments)
+                .build());
+    }
+
+    @Operation(
+        summary = "Create group payment",
+        description = "Creates a new payment for a specific group. Only admins and moderators can create payments."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Payment created successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid payment details"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to create payments"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @PostMapping("/{groupId}/payments")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> createGroupPayment(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(description = "Payment creation details", required = true)
+            @Valid @RequestBody com.mahiberawi.dto.payment.PaymentRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        com.mahiberawi.dto.payment.PaymentResponse payment = groupService.createGroupPayment(groupId, request, user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Payment created successfully")
+                .data(payment)
+                .build());
+    }
+
+    // ========== ENHANCED MEMBER MANAGEMENT ==========
+
+    @Operation(
+        summary = "Add member to group",
+        description = "Adds a new member to a group. Only admins and moderators can add members."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Member added successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid member details"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to add members"),
+        @ApiResponse(responseCode = "404", description = "Group or user not found"),
+        @ApiResponse(responseCode = "409", description = "User already a member")
+    })
+    @PostMapping("/{groupId}/members")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> addGroupMember(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(description = "Member details", required = true)
+            @Valid @RequestBody GroupMemberRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        GroupMemberResponse member = groupService.addGroupMember(groupId, request, user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Member added successfully")
+                .data(member)
+                .build());
+    }
+
+    @Operation(
+        summary = "Remove member from group",
+        description = "Removes a member from a group. Only admins can remove members."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Member removed successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to remove members"),
+        @ApiResponse(responseCode = "404", description = "Group or member not found")
+    })
+    @DeleteMapping("/{groupId}/members/{memberId}")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> removeGroupMember(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(description = "ID of the member to remove", required = true)
+            @PathVariable String memberId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        GroupMemberResponse removedMember = groupService.removeGroupMember(groupId, memberId, user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Member removed successfully")
+                .data(removedMember)
+                .build());
+    }
+
+    @Operation(
+        summary = "Update member role",
+        description = "Updates the role of a group member. Only admins can update roles."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Member role updated successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid role update"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to update roles"),
+        @ApiResponse(responseCode = "404", description = "Group or member not found")
+    })
+    @PutMapping("/{groupId}/members/{memberId}/role")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> updateMemberRole(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(description = "ID of the member", required = true)
+            @PathVariable String memberId,
+            @Parameter(description = "Role update details", required = true)
+            @Valid @RequestBody UpdateRoleRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        GroupMemberResponse updatedMember = groupService.updateMemberRole(groupId, memberId, request, user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Member role updated successfully")
+                .data(updatedMember)
+                .build());
+    }
+
+    // ========== USER AGGREGATED ENDPOINTS (HOME SCREEN) ==========
+
+    @Operation(
+        summary = "Get user's group events",
+        description = "Retrieves all events from groups the user is a member of for the home screen."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "User's group events retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @GetMapping("/user/events")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getUserGroupEvents(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<com.mahiberawi.dto.event.EventResponse> events = groupService.getUserGroupEvents(user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("User's group events retrieved successfully")
+                .data(events)
+                .build());
+    }
+
+    @Operation(
+        summary = "Get user's group posts",
+        description = "Retrieves all posts from groups the user is a member of for the home screen."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "User's group posts retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @GetMapping("/user/posts")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getUserGroupPosts(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<com.mahiberawi.dto.message.MessageResponse> posts = groupService.getUserGroupPosts(user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("User's group posts retrieved successfully")
+                .data(posts)
+                .build());
+    }
+
+    @Operation(
+        summary = "Get user's group payments",
+        description = "Retrieves all payments from groups the user is a member of for the home screen."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "User's group payments retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @GetMapping("/user/payments")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getUserGroupPayments(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<com.mahiberawi.dto.payment.PaymentResponse> payments = groupService.getUserGroupPayments(user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("User's group payments retrieved successfully")
+                .data(payments)
+                .build());
     }
 } 
