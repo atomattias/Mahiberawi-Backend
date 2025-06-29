@@ -311,6 +311,13 @@ public class GroupService {
                 .collect(Collectors.toList());
     }
 
+    public List<GroupMemberResponse> getUserMemberships(User user) {
+        List<GroupMember> memberships = groupMemberRepository.findByUser(user);
+        return memberships.stream()
+                .map(this::mapToMemberResponse)
+                .collect(Collectors.toList());
+    }
+
     private GroupResponse mapToResponse(Group group) {
         return GroupResponse.builder()
                 .id(group.getId())
