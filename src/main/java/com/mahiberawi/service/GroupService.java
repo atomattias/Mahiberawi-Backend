@@ -1,43 +1,36 @@
 package com.mahiberawi.service;
 
-import com.mahiberawi.dto.group.GroupMemberRequest;
-import com.mahiberawi.dto.group.GroupMemberResponse;
-import com.mahiberawi.dto.group.GroupRequest;
-import com.mahiberawi.dto.group.GroupResponse;
-import com.mahiberawi.dto.group.JoinByEmailRequest;
-import com.mahiberawi.dto.group.JoinByLinkRequest;
-import com.mahiberawi.dto.group.JoinResponse;
-import com.mahiberawi.dto.group.GroupInvitationRequest;
-import com.mahiberawi.dto.group.GroupInvitationResponse;
-import com.mahiberawi.dto.UserResponse;
-import com.mahiberawi.entity.Group;
-import com.mahiberawi.entity.GroupMember;
-import com.mahiberawi.entity.GroupInvitation;
-import com.mahiberawi.entity.User;
-import com.mahiberawi.entity.UserRole;
+import com.mahiberawi.dto.group.*;
+import com.mahiberawi.entity.*;
 import com.mahiberawi.entity.enums.GroupMemberRole;
 import com.mahiberawi.entity.enums.GroupMemberStatus;
 import com.mahiberawi.entity.enums.GroupPrivacy;
+import com.mahiberawi.entity.enums.GroupType;
 import com.mahiberawi.entity.enums.InvitationStatus;
+import com.mahiberawi.entity.MessageType;
+import com.mahiberawi.entity.PaymentStatus;
 import com.mahiberawi.exception.ResourceNotFoundException;
 import com.mahiberawi.exception.UnauthorizedException;
-import com.mahiberawi.repository.GroupMemberRepository;
-import com.mahiberawi.repository.GroupRepository;
-import com.mahiberawi.repository.GroupInvitationRepository;
-import com.mahiberawi.repository.UserRepository;
+import com.mahiberawi.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
+import java.util.UUID;
 
 import com.mahiberawi.dto.group.JoinGroupRequest;
 import com.mahiberawi.dto.ApiResponse;
 
 import java.util.Random;
+import com.mahiberawi.entity.Event;
+import com.mahiberawi.entity.Message;
+import com.mahiberawi.entity.Payment;
+import com.mahiberawi.repository.EventRepository;
+import com.mahiberawi.repository.MessageRepository;
+import com.mahiberawi.repository.PaymentRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +41,9 @@ public class GroupService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final EmailService emailService;
+    private final EventRepository eventRepository;
+    private final MessageRepository messageRepository;
+    private final PaymentRepository paymentRepository;
 
     @Transactional
     public GroupResponse createGroup(GroupRequest request, User creator) {
@@ -1072,5 +1068,355 @@ public class GroupService {
                 .createdAt(invitation.getCreatedAt())
                 .invitationCode(invitationCode)
                 .build();
+    }
+
+    // ========== GROUP-SPECIFIC ACTIVITIES METHODS ==========
+
+    public List<com.mahiberawi.dto.event.EventResponse> getGroupEvents(String groupId, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Check if user is a member of the group
+        if (!groupMemberRepository.existsByGroupAndUser(group, currentUser)) {
+            throw new UnauthorizedException("You are not a member of this group");
+        }
+
+        return group.getEvents().stream()
+                .map(this::mapToEventResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public com.mahiberawi.dto.event.EventResponse createGroupEvent(String groupId, 
+            com.mahiberawi.dto.event.EventRequest request, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Check if user is a member of the group
+        GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
+                .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
+
+        // Check if user has permission to create events
+        if (currentMember.getRole() != GroupMemberRole.ADMIN && currentMember.getRole() != GroupMemberRole.MODERATOR) {
+            throw new UnauthorizedException("Only admins and moderators can create events");
+        }
+
+        // Check if group allows event creation
+        if (!group.getAllowEventCreation()) {
+            throw new UnauthorizedException("Event creation is not allowed in this group");
+        }
+
+        // Create event
+        Event event = new Event();
+        event.setTitle(request.getTitle());
+        event.setDescription(request.getDescription());
+        event.setStartTime(request.getStartTime());
+        event.setEndTime(request.getEndTime());
+        event.setLocation(request.getLocation());
+        event.setMaxParticipants(request.getMaxParticipants());
+        event.setGroup(group);
+        event.setCreator(currentUser);
+
+        Event savedEvent = eventRepository.save(event);
+        return mapToEventResponse(savedEvent);
+    }
+
+    public List<com.mahiberawi.dto.message.MessageResponse> getGroupPosts(String groupId, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Check if user is a member of the group
+        if (!groupMemberRepository.existsByGroupAndUser(group, currentUser)) {
+            throw new UnauthorizedException("You are not a member of this group");
+        }
+
+        return group.getMessages().stream()
+                .map(this::mapToMessageResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public com.mahiberawi.dto.message.MessageResponse createGroupPost(String groupId, 
+            com.mahiberawi.dto.message.MessageRequest request, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Check if user is a member of the group
+        GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
+                .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
+
+        // Check if group allows message posting
+        if (!group.getAllowMessagePosting()) {
+            throw new UnauthorizedException("Message posting is not allowed in this group");
+        }
+
+        // Create message
+        Message message = new Message();
+        message.setContent(request.getContent());
+        message.setType(MessageType.GROUP);
+        message.setSender(currentUser);
+        message.setGroup(group);
+
+        Message savedMessage = messageRepository.save(message);
+        return mapToMessageResponse(savedMessage);
+    }
+
+    public List<com.mahiberawi.dto.payment.PaymentResponse> getGroupPayments(String groupId, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Check if user is a member of the group
+        if (!groupMemberRepository.existsByGroupAndUser(group, currentUser)) {
+            throw new UnauthorizedException("You are not a member of this group");
+        }
+
+        return paymentRepository.findByGroupId(groupId).stream()
+                .map(this::mapToPaymentResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public com.mahiberawi.dto.payment.PaymentResponse createGroupPayment(String groupId, 
+            com.mahiberawi.dto.payment.PaymentRequest request, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Check if user is a member of the group
+        GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
+                .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
+
+        // Check if user has permission to create payments
+        if (currentMember.getRole() != GroupMemberRole.ADMIN && currentMember.getRole() != GroupMemberRole.MODERATOR) {
+            throw new UnauthorizedException("Only admins and moderators can create payments");
+        }
+
+        // Create payment
+        Payment payment = new Payment();
+        payment.setAmount(request.getAmount());
+        payment.setMethod(request.getMethod());
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setPayer(currentUser);
+        payment.setGroup(group);
+        payment.setDescription(request.getDescription());
+        payment.setTransactionId(generateTransactionId());
+
+        Payment savedPayment = paymentRepository.save(payment);
+        return mapToPaymentResponse(savedPayment);
+    }
+
+    // ========== ENHANCED MEMBER MANAGEMENT METHODS ==========
+
+    @Transactional
+    public GroupMemberResponse addGroupMember(String groupId, GroupMemberRequest request, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Check if current user has permission to add members
+        GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
+                .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
+
+        if (currentMember.getRole() != GroupMemberRole.ADMIN && currentMember.getRole() != GroupMemberRole.MODERATOR) {
+            throw new UnauthorizedException("Only admins and moderators can add members");
+        }
+
+        // Find user to add
+        User userToAdd = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
+
+        // Check if user is already a member
+        if (groupMemberRepository.existsByGroupAndUser(group, userToAdd)) {
+            throw new IllegalStateException("User is already a member of this group");
+        }
+
+        // Create member record
+        GroupMember member = GroupMember.builder()
+                .groupId(group.getId())
+                .userId(userToAdd.getId())
+                .group(group)
+                .user(userToAdd)
+                .role(request.getRole())
+                .status(GroupMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+        member = groupMemberRepository.save(member);
+
+        // Update group member count
+        group.setMemberCount(group.getMemberCount() + 1);
+        groupRepository.save(group);
+
+        return mapToMemberResponse(member);
+    }
+
+    @Transactional
+    public GroupMemberResponse removeGroupMember(String groupId, String memberId, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Find member to remove
+        GroupMember memberToRemove = groupMemberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found with id: " + memberId));
+
+        // Check if member belongs to the group
+        if (!memberToRemove.getGroup().getId().equals(groupId)) {
+            throw new ResourceNotFoundException("Member does not belong to this group");
+        }
+
+        // Check permissions
+        if (!memberToRemove.getUser().getId().equals(currentUser.getId())) {
+            // If not removing self, must be admin
+            GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
+                    .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
+
+            if (currentMember.getRole() != GroupMemberRole.ADMIN) {
+                throw new UnauthorizedException("Only admins can remove members");
+            }
+        }
+
+        // Prevent removing the last admin
+        if (memberToRemove.getRole() == GroupMemberRole.ADMIN) {
+            long adminCount = group.getMembers().stream()
+                    .filter(m -> m.getRole() == GroupMemberRole.ADMIN)
+                    .count();
+            if (adminCount <= 1) {
+                throw new IllegalStateException("Cannot remove the last admin");
+            }
+        }
+
+        // Remove member
+        groupMemberRepository.delete(memberToRemove);
+
+        // Update group member count
+        group.setMemberCount(Math.max(0, group.getMemberCount() - 1));
+        groupRepository.save(group);
+
+        return mapToMemberResponse(memberToRemove);
+    }
+
+    @Transactional
+    public GroupMemberResponse updateMemberRole(String groupId, String memberId, 
+            UpdateRoleRequest request, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Check if current user has permission to update roles
+        GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
+                .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
+
+        if (currentMember.getRole() != GroupMemberRole.ADMIN) {
+            throw new UnauthorizedException("Only admins can update member roles");
+        }
+
+        // Find member to update
+        GroupMember memberToUpdate = groupMemberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found with id: " + memberId));
+
+        // Check if member belongs to the group
+        if (!memberToUpdate.getGroup().getId().equals(groupId)) {
+            throw new ResourceNotFoundException("Member does not belong to this group");
+        }
+
+        // Prevent demoting the last admin
+        if (memberToUpdate.getRole() == GroupMemberRole.ADMIN && request.getRole() != GroupMemberRole.ADMIN) {
+            long adminCount = group.getMembers().stream()
+                    .filter(m -> m.getRole() == GroupMemberRole.ADMIN)
+                    .count();
+            if (adminCount <= 1) {
+                throw new IllegalStateException("Cannot demote the last admin");
+            }
+        }
+
+        // Update role
+        memberToUpdate.setRole(request.getRole());
+        GroupMember updatedMember = groupMemberRepository.save(memberToUpdate);
+
+        return mapToMemberResponse(updatedMember);
+    }
+
+    // ========== USER AGGREGATED METHODS (HOME SCREEN) ==========
+
+    public List<com.mahiberawi.dto.event.EventResponse> getUserGroupEvents(User currentUser) {
+        List<Group> userGroups = groupRepository.findByMemberId(currentUser.getId());
+        List<Event> allEvents = new ArrayList<>();
+        
+        for (Group group : userGroups) {
+            allEvents.addAll(group.getEvents());
+        }
+        
+        return allEvents.stream()
+                .map(this::mapToEventResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<com.mahiberawi.dto.message.MessageResponse> getUserGroupPosts(User currentUser) {
+        List<Group> userGroups = groupRepository.findByMemberId(currentUser.getId());
+        List<Message> allMessages = new ArrayList<>();
+        
+        for (Group group : userGroups) {
+            allMessages.addAll(group.getMessages());
+        }
+        
+        return allMessages.stream()
+                .map(this::mapToMessageResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<com.mahiberawi.dto.payment.PaymentResponse> getUserGroupPayments(User currentUser) {
+        List<Group> userGroups = groupRepository.findByMemberId(currentUser.getId());
+        List<Payment> allPayments = new ArrayList<>();
+        
+        for (Group group : userGroups) {
+            allPayments.addAll(paymentRepository.findByGroupId(group.getId()));
+        }
+        
+        return allPayments.stream()
+                .map(this::mapToPaymentResponse)
+                .collect(Collectors.toList());
+    }
+
+    // ========== HELPER METHODS ==========
+
+    private com.mahiberawi.dto.event.EventResponse mapToEventResponse(Event event) {
+        return com.mahiberawi.dto.event.EventResponse.builder()
+                .id(event.getId())
+                .title(event.getTitle())
+                .description(event.getDescription())
+                .startTime(event.getStartTime())
+                .endTime(event.getEndTime())
+                .location(event.getLocation())
+                .maxParticipants(event.getMaxParticipants())
+                .groupId(event.getGroup().getId())
+                .groupName(event.getGroup().getName())
+                .creatorId(event.getCreator().getId())
+                .creatorName(event.getCreator().getName())
+                .createdAt(event.getCreatedAt())
+                .status(event.getStatus())
+                .build();
+    }
+
+    private com.mahiberawi.dto.message.MessageResponse mapToMessageResponse(Message message) {
+        return com.mahiberawi.dto.message.MessageResponse.builder()
+                .id(message.getId())
+                .content(message.getContent())
+                .senderName(message.getSender().getName())
+                .senderId(message.getSender().getId())
+                .createdAt(message.getCreatedAt())
+                .groupId(message.getGroup() != null ? message.getGroup().getId() : null)
+                .build();
+    }
+
+    private com.mahiberawi.dto.payment.PaymentResponse mapToPaymentResponse(Payment payment) {
+        return com.mahiberawi.dto.payment.PaymentResponse.builder()
+                .id(payment.getId())
+                .amount(payment.getAmount())
+                .description(payment.getDescription())
+                .status(payment.getStatus())
+                .createdAt(payment.getCreatedAt())
+                .userId(payment.getPayer().getId())
+                .build();
+    }
+
+    private String generateTransactionId() {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 12);
     }
 } 
