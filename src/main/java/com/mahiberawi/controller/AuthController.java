@@ -227,4 +227,29 @@ public class AuthController {
         UserResponse userResponse = userService.getUserResponseById(user.getId());
         return ResponseEntity.ok(userResponse);
     }
+
+    @Operation(
+        summary = "Logout user",
+        description = "Logs out the current user. Since JWT tokens are stateless, " +
+                     "this endpoint returns success and the client should clear local tokens."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Logout successful",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @PostMapping("/logout")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> logout(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        // For JWT tokens, logout is handled client-side by clearing tokens
+        // This endpoint provides a clean way to handle logout requests
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Logout successful")
+                .build());
+    }
 } 
