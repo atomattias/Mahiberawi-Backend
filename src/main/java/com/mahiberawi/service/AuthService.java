@@ -24,6 +24,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
@@ -90,7 +92,12 @@ public class AuthService {
             // Note: We don't fail registration if email fails, but we log it
         }
 
-        var jwtToken = jwtService.generateToken(user);
+        // Create claims with user role and ID
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", user.getRole().name());
+        claims.put("userId", user.getId());
+        
+        var jwtToken = jwtService.generateToken(claims, user);
         var refreshToken = jwtService.generateRefreshToken(user);
 
         return RegistrationResponse.builder()
@@ -131,7 +138,12 @@ public class AuthService {
 
         log.info("Login successful for user: {}", user.getId());
 
-        var jwtToken = jwtService.generateToken(user);
+        // Create claims with user role and ID
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", user.getRole().name());
+        claims.put("userId", user.getId());
+        
+        var jwtToken = jwtService.generateToken(claims, user);
         var refreshToken = jwtService.generateRefreshToken(user);
 
         return AuthResponse.builder()
@@ -165,8 +177,13 @@ public class AuthService {
             userRepository.save(user);
             log.info("Email verified successfully for user: {}", user.getId());
             
+            // Create claims with user role and ID
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("role", user.getRole().name());
+            claims.put("userId", user.getId());
+            
             // Generate tokens for the verified user
-            var jwtToken = jwtService.generateToken(user);
+            var jwtToken = jwtService.generateToken(claims, user);
             var refreshToken = jwtService.generateRefreshToken(user);
             
             return AuthResponse.builder()
