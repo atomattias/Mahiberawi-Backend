@@ -73,6 +73,11 @@ public class UserService {
         return user.getRole() == UserRole.SUPER_ADMIN;
     }
 
+    public UserResponse getUserResponseById(String userId) {
+        User user = getUserById(userId);
+        return convertToUserResponse(user);
+    }
+
     private UserResponse convertToUserResponse(User user) {
         int groupCount = groupMemberRepository.countByUserId(user.getId());
         int createdGroups = groupRepository.countByCreatorId(user.getId());
