@@ -97,6 +97,10 @@ public class Group {
     @Builder.Default
     private Set<Message> messages = new HashSet<>();
 
+    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<Payment> payments = new HashSet<>();
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

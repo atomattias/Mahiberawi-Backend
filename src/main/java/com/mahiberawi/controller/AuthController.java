@@ -8,25 +8,33 @@ import com.mahiberawi.dto.auth.PhoneVerificationRequest;
 import com.mahiberawi.dto.auth.ForgotPasswordRequest;
 import com.mahiberawi.dto.auth.ResetPasswordRequest;
 import com.mahiberawi.dto.auth.RegistrationResponse;
+import com.mahiberawi.dto.UserResponse;
 import com.mahiberawi.service.AuthService;
+import com.mahiberawi.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import com.mahiberawi.entity.User;
 
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 @Tag(name = "Authentication", description = "Authentication management APIs")
+@SecurityRequirement(name = "Bearer Authentication")
 public class AuthController {
     private final AuthService authService;
+    private final UserService userService;
 
     @Operation(
         summary = "Register a new user",
@@ -197,5 +205,26 @@ public class AuthController {
                     .message("Error: " + e.getMessage())
                     .build());
         }
+    }
+
+    @Operation(
+        summary = "Get current user profile",
+        description = "Retrieves the profile information of the currently authenticated user"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "User profile retrieved successfully",
+            content = @Content(schema = @Schema(implementation = UserResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    @GetMapping("/me")
+    public ResponseEntity<UserResponse> getCurrentUser(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        UserResponse userResponse = userService.getUserResponseById(user.getId());
+        return ResponseEntity.ok(userResponse);
     }
 } 
