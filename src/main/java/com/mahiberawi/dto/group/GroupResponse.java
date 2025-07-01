@@ -6,6 +6,7 @@ import com.mahiberawi.entity.enums.GroupMemberRole;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -28,5 +29,5 @@ public class GroupResponse {
     private Boolean allowMessagePosting;
     private Boolean paymentRequired;
     private Boolean requireApproval;
-    private Double monthlyDues;
+    private BigDecimal monthlyDues;
 } 

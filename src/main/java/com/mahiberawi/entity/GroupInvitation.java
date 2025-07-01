@@ -4,6 +4,8 @@ import com.mahiberawi.entity.enums.InvitationStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -11,6 +13,8 @@ import java.time.LocalDateTime;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "group_invitations")
 @EntityListeners(AuditingEntityListener.class)

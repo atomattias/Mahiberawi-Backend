@@ -5,6 +5,7 @@ import lombok.Data;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -38,8 +39,8 @@ public class Membership {
     @Column(name = "end_date")
     private LocalDateTime endDate;
 
-    @Column(name = "fee")
-    private Double fee;
+    @Column(name = "fee", precision = 10, scale = 2)
+    private BigDecimal fee;
 
     @Column(columnDefinition = "TEXT")
     private String description;
