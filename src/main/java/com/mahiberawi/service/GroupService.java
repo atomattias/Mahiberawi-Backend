@@ -860,6 +860,7 @@ public class GroupService {
                 .status(InvitationStatus.PENDING)
                 .expiresAt(expiresAt)
                 .message(message)
+                .invitationCode(invitationCode)
                 .build();
 
         invitation = groupInvitationRepository.save(invitation);
@@ -898,6 +899,7 @@ public class GroupService {
                 .status(InvitationStatus.PENDING)
                 .expiresAt(expiresAt)
                 .message(message)
+                .invitationCode(invitationCode)
                 .build();
 
         invitation = groupInvitationRepository.save(invitation);
@@ -930,6 +932,7 @@ public class GroupService {
                 .status(InvitationStatus.PENDING)
                 .expiresAt(expiresAt)
                 .message(message)
+                .invitationCode(invitationCode)
                 .build();
 
         invitation = groupInvitationRepository.save(invitation);
@@ -958,7 +961,7 @@ public class GroupService {
                 .map(invitation -> {
                     User inviter = userRepository.findById(invitation.getInvitedBy())
                             .orElse(null);
-                    return mapToInvitationResponse(invitation, group, inviter, null);
+                    return mapToInvitationResponse(invitation, group, inviter, invitation.getInvitationCode());
                 })
                 .collect(Collectors.toList());
     }
@@ -997,16 +1000,8 @@ public class GroupService {
      */
     @Transactional
     public GroupResponse joinWithInvitationCode(String invitationCode, User user) {
-        // Find invitation by code (this would need to be implemented based on your code storage strategy)
-        // For now, we'll assume the code is stored in the invitation record or a separate table
-        
-        // This is a simplified implementation - you might want to store codes separately
-        List<GroupInvitation> pendingInvitations = groupInvitationRepository.findExpiredInvitations(LocalDateTime.now());
-        
-        // Find the invitation that matches the code (you'll need to implement this based on your code storage)
-        GroupInvitation invitation = pendingInvitations.stream()
-                .filter(inv -> inv.getStatus() == InvitationStatus.PENDING)
-                .findFirst()
+        // Find invitation by code
+        GroupInvitation invitation = groupInvitationRepository.findByInvitationCodeAndStatus(invitationCode, InvitationStatus.PENDING)
                 .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired invitation code"));
 
         // Verify invitation is not expired

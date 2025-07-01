@@ -46,6 +46,12 @@ public interface GroupInvitationRepository extends JpaRepository<GroupInvitation
     // Find invitation by phone and group
     Optional<GroupInvitation> findByPhoneAndGroupId(String phone, String groupId);
     
+    // Find invitation by invitation code
+    Optional<GroupInvitation> findByInvitationCode(String invitationCode);
+    
+    // Find pending invitation by invitation code
+    Optional<GroupInvitation> findByInvitationCodeAndStatus(String invitationCode, InvitationStatus status);
+    
     // Count pending invitations by group
     int countByGroupIdAndStatus(String groupId, InvitationStatus status);
     

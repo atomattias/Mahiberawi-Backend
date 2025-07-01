@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS group_invitations (
     group_id VARCHAR(255) NOT NULL,
     email VARCHAR(255),
     phone VARCHAR(255),
+    invitation_code VARCHAR(255) UNIQUE,
     invited_by VARCHAR(255) NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
     expires_at TIMESTAMP,
@@ -22,6 +23,7 @@ CREATE TABLE IF NOT EXISTS group_invitations (
     INDEX idx_group_invitations_group_id (group_id),
     INDEX idx_group_invitations_email (email),
     INDEX idx_group_invitations_phone (phone),
+    INDEX idx_group_invitations_invitation_code (invitation_code),
     INDEX idx_group_invitations_status (status),
     INDEX idx_group_invitations_expires_at (expires_at),
     INDEX idx_group_invitations_invited_by (invited_by)
@@ -31,9 +33,14 @@ CREATE TABLE IF NOT EXISTS group_invitations (
 ALTER TABLE group_invitations 
 ADD COLUMN IF NOT EXISTS message TEXT;
 
+-- Add invitation_code column to group_invitations if it doesn't exist
+ALTER TABLE group_invitations 
+ADD COLUMN IF NOT EXISTS invitation_code VARCHAR(255) UNIQUE;
+
 -- Add indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_group_invitations_email_group ON group_invitations(email, group_id);
 CREATE INDEX IF NOT EXISTS idx_group_invitations_phone_group ON group_invitations(phone, group_id);
+CREATE INDEX IF NOT EXISTS idx_group_invitations_invitation_code ON group_invitations(invitation_code);
 CREATE INDEX IF NOT EXISTS idx_group_invitations_expired ON group_invitations(expires_at, status) 
 WHERE status = 'PENDING' AND expires_at < NOW();
 

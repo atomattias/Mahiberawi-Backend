@@ -32,6 +32,9 @@ public class GroupInvitation {
     @Column(name = "phone")
     private String phone;
 
+    @Column(name = "invitation_code", unique = true)
+    private String invitationCode;
+
     @Column(name = "invited_by", nullable = false)
     private String invitedBy;
 
