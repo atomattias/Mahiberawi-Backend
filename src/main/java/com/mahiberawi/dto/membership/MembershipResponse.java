@@ -5,6 +5,7 @@ import com.mahiberawi.entity.MembershipType;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -21,7 +22,7 @@ public class MembershipResponse {
     private MembershipStatus status;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
-    private Double fee;
+    private BigDecimal fee;
     private String description;
     private String createdBy;
     private LocalDateTime createdAt;

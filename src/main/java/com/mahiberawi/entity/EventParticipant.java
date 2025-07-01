@@ -5,6 +5,7 @@ import lombok.Data;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -31,8 +32,8 @@ public class EventParticipant {
     @Column(name = "payment_status")
     private boolean paymentStatus = false;
 
-    @Column(name = "payment_amount")
-    private Double paymentAmount;
+    @Column(name = "payment_amount", precision = 10, scale = 2)
+    private BigDecimal paymentAmount;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
