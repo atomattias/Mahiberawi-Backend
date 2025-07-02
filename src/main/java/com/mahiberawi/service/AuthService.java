@@ -344,4 +344,57 @@ public class AuthService {
             throw new RuntimeException("Failed to delete user: " + e.getMessage());
         }
     }
+
+    /**
+     * Refresh JWT token using refresh token
+     */
+    public AuthResponse refreshToken(String refreshToken) {
+        log.info("Token refresh attempt");
+        
+        try {
+            // Validate refresh token
+            String username = jwtService.extractUsername(refreshToken);
+            if (username == null) {
+                throw new RuntimeException("Invalid refresh token");
+            }
+            
+            // Check if user exists
+            var user = userRepository.findByEmail(username)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            // Validate token
+            if (!jwtService.isTokenValid(refreshToken, user)) {
+                throw new RuntimeException("Invalid refresh token");
+            }
+            
+            // Generate new tokens
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("role", user.getRole().name());
+            claims.put("userId", user.getId());
+            
+            var newJwtToken = jwtService.generateToken(claims, user);
+            var newRefreshToken = jwtService.generateRefreshToken(user);
+            
+            log.info("Token refreshed successfully for user: {}", user.getId());
+            
+            return AuthResponse.builder()
+                    .token(newJwtToken)
+                    .refreshToken(newRefreshToken)
+                    .user(com.mahiberawi.dto.UserResponse.builder()
+                            .id(user.getId())
+                            .name(user.getFullName())
+                            .email(user.getEmail())
+                            .role(user.getRole())
+                            .intention(user.getIntention())
+                            .isEmailVerified(user.isEmailVerified())
+                            .isPhoneVerified(user.isPhoneVerified())
+                            .createdAt(user.getCreatedAt())
+                            .updatedAt(user.getUpdatedAt())
+                            .build())
+                    .build();
+        } catch (Exception e) {
+            log.error("Token refresh failed: {}", e.getMessage());
+            throw new RuntimeException("Failed to refresh token", e);
+        }
+    }
 } 

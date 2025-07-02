@@ -103,6 +103,37 @@ public class PaymentService {
                 .collect(Collectors.toList());
     }
 
+    public Payment createPaymentEntity(PaymentRequest request, User payer) {
+        Payment payment = new Payment();
+        payment.setAmount(request.getAmount());
+        payment.setMethod(request.getMethod());
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setPayer(payer);
+        payment.setDescription(request.getDescription());
+        payment.setTransactionId(generateTransactionId());
+
+        if (request.getEventId() != null) {
+            Event event = eventRepository.findById(request.getEventId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Event", "id", request.getEventId()));
+            payment.setEvent(event);
+        }
+
+        if (request.getMembershipId() != null) {
+            Membership membership = membershipRepository.findById(request.getMembershipId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Membership", "id", request.getMembershipId()));
+            payment.setMembership(membership);
+        }
+
+        return paymentRepository.save(payment);
+    }
+
+    public List<PaymentResponse> getPaymentsByPhoneNumber(String phoneNumber) {
+        List<Payment> payments = paymentRepository.findByPayer_Phone(phoneNumber);
+        return payments.stream()
+                .map(this::mapToPaymentResponse)
+                .collect(Collectors.toList());
+    }
+
     private String generateTransactionId() {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 12);
     }

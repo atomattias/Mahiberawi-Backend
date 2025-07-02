@@ -33,4 +33,4 @@ public class MahiberawiApplication {
         log.info("Health check available at: /");
         log.info("API health check available at: /api/health");
     }
-} 
+}

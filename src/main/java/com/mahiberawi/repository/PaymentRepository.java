@@ -16,4 +16,5 @@ public interface PaymentRepository extends JpaRepository<Payment, String> {
     List<Payment> findByStatus(PaymentStatus status);
     List<Payment> findByPayerAndStatus(User payer, PaymentStatus status);
     List<Payment> findByGroupId(String groupId);
+    List<Payment> findByPayer_Phone(String phoneNumber);
 } 

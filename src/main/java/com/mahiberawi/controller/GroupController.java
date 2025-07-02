@@ -16,7 +16,13 @@ import com.mahiberawi.dto.group.GroupEventsResponse;
 import com.mahiberawi.dto.group.GroupPostsResponse;
 import com.mahiberawi.dto.group.GroupPaymentsResponse;
 import com.mahiberawi.entity.User;
+import com.mahiberawi.entity.Group;
+import com.mahiberawi.entity.GroupMember;
 import com.mahiberawi.entity.enums.GroupMemberRole;
+import com.mahiberawi.exception.ResourceNotFoundException;
+import com.mahiberawi.exception.UnauthorizedException;
+import com.mahiberawi.repository.GroupRepository;
+import com.mahiberawi.repository.GroupMemberRepository;
 import com.mahiberawi.service.GroupService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -46,6 +52,8 @@ import java.util.List;
 @SecurityRequirement(name = "Bearer Authentication")
 public class GroupController {
     private final GroupService groupService;
+    private final GroupRepository groupRepository;
+    private final GroupMemberRepository groupMemberRepository;
 
     @Operation(
         summary = "Create a new group",
@@ -1133,6 +1141,35 @@ public class GroupController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(
+        summary = "Get group payment requests",
+        description = "Retrieves all payment requests for a specific group. " +
+                     "Only accessible by group members."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Payment requests retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not a member of the group"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @GetMapping("/{groupId}/payment-requests")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getGroupPaymentRequests(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<com.mahiberawi.dto.payment.PaymentResponse> payments = groupService.getGroupPayments(groupId, user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Group payment requests retrieved successfully")
+                .data(payments)
+                .build());
+    }
+
     // ========== ENHANCED PERMISSION-BASED ENDPOINTS ==========
 
     @Operation(
@@ -1290,5 +1327,141 @@ public class GroupController {
             @AuthenticationPrincipal User user) {
         List<GroupInvitationResponse> invitations = groupService.getGroupInvitationsWithPermissions(groupId, user);
         return ResponseEntity.ok(invitations);
+    }
+
+    // ========== ADDITIONAL INVITATION ENDPOINTS FOR FRONTEND COMPATIBILITY ==========
+
+    @Operation(
+        summary = "Generate invitation code for group",
+        description = "Generates a unique invitation code for a specific group. " +
+                     "Only admins and moderators can generate codes."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Invitation code generated successfully",
+            content = @Content(schema = @Schema(implementation = GroupInvitationResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to generate codes"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @PostMapping("/{groupId}/invitations/code")
+    public ResponseEntity<GroupInvitationResponse> generateInvitationCode(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        GroupInvitationRequest request = new GroupInvitationRequest();
+        request.setGroupId(groupId);
+        request.setGenerateCode(true);
+        request.setExpirationHours(24);
+        request.setMessage("You've been invited to join this group!");
+        
+        GroupInvitationResponse invitation = groupService.createGroupInvitationWithPermission(request, user);
+        return ResponseEntity.ok(invitation);
+    }
+
+    @Operation(
+        summary = "Send email invitation for group",
+        description = "Sends an email invitation to join a specific group. " +
+                     "Only admins and moderators can send email invitations."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Email invitation sent successfully",
+            content = @Content(schema = @Schema(implementation = GroupInvitationResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid email address"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to send invitations"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @PostMapping("/{groupId}/invitations/code/email")
+    public ResponseEntity<GroupInvitationResponse> sendEmailInvitation(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(description = "Email invitation details", required = true)
+            @Valid @RequestBody GroupInvitationRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        request.setGroupId(groupId);
+        GroupInvitationResponse invitation = groupService.createGroupInvitationWithPermission(request, user);
+        return ResponseEntity.ok(invitation);
+    }
+
+    @Operation(
+        summary = "Send SMS invitation for group",
+        description = "Sends an SMS invitation to join a specific group. " +
+                     "Only admins and moderators can send SMS invitations."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "SMS invitation sent successfully",
+            content = @Content(schema = @Schema(implementation = GroupInvitationResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid phone number"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to send invitations"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @PostMapping("/{groupId}/invitations/code/sms")
+    public ResponseEntity<GroupInvitationResponse> sendSMSInvitation(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(description = "SMS invitation details", required = true)
+            @Valid @RequestBody GroupInvitationRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        request.setGroupId(groupId);
+        GroupInvitationResponse invitation = groupService.createGroupInvitationWithPermission(request, user);
+        return ResponseEntity.ok(invitation);
+    }
+
+    @Operation(
+        summary = "Generate invitation link for group",
+        description = "Generates a shareable invitation link for a specific group. " +
+                     "Only admins and moderators can generate links."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Invitation link generated successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to generate links"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @PostMapping("/{groupId}/invitations/link")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> generateInvitationLink(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        // Verify user has permission
+        GroupResponse groupResponse = groupService.getGroup(groupId, user);
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+        
+        GroupMember member = groupMemberRepository.findByGroupAndUser(group, user)
+                .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
+        
+        boolean canGenerateLinks = (member.getRole() == GroupMemberRole.ADMIN || member.getRole() == GroupMemberRole.MODERATOR) &&
+                group.getAllowMemberInvites();
+        
+        if (!canGenerateLinks) {
+            throw new UnauthorizedException("You do not have permission to generate invitation links in this group");
+        }
+        
+        String invitationLink = "https://mahiberawi.com/join/" + groupId + "?code=" + group.getInviteLink();
+        
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Invitation link generated successfully")
+                .data(invitationLink)
+                .build());
     }
 } 

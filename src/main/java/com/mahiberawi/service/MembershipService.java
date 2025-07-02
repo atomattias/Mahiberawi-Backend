@@ -120,48 +120,58 @@ public class MembershipService {
     }
 
     private void notifyMembershipCreated(Membership membership) {
-        String message = String.format("Your membership has been created. Type: %s, Valid until: %s",
-                membership.getType(), membership.getEndDate());
-        notificationService.createMembershipNotification(membership.getUser(), message);
+        if (membership.getUser() != null) {
+            String message = String.format("Your membership has been created. Type: %s, Valid until: %s",
+                    membership.getType(), membership.getEndDate());
+            notificationService.createMembershipNotification(membership.getUser(), message);
+        }
     }
 
     private void notifyMembershipUpdated(Membership membership) {
-        String message = String.format("Your membership has been updated. New end date: %s",
-                membership.getEndDate());
-        notificationService.createMembershipNotification(membership.getUser(), message);
+        if (membership.getUser() != null) {
+            String message = String.format("Your membership has been updated. New end date: %s",
+                    membership.getEndDate());
+            notificationService.createMembershipNotification(membership.getUser(), message);
+        }
     }
 
     private void notifyMembershipRenewed(Membership membership) {
-        String message = String.format("Your membership has been renewed until %s",
-                membership.getEndDate());
-        notificationService.createMembershipNotification(membership.getUser(), message);
+        if (membership.getUser() != null) {
+            String message = String.format("Your membership has been renewed until %s",
+                    membership.getEndDate());
+            notificationService.createMembershipNotification(membership.getUser(), message);
+        }
     }
 
     private void notifyMembershipCancelled(Membership membership) {
-        String message = "Your membership has been cancelled";
-        notificationService.createMembershipNotification(membership.getUser(), message);
+        if (membership.getUser() != null) {
+            String message = "Your membership has been cancelled";
+            notificationService.createMembershipNotification(membership.getUser(), message);
+        }
     }
 
     private void notifyMembershipExpiring(Membership membership) {
-        String message = String.format("Your membership will expire on %s. Please renew to maintain access.",
-                membership.getEndDate());
-        notificationService.createMembershipNotification(membership.getUser(), message);
+        if (membership.getUser() != null) {
+            String message = String.format("Your membership will expire on %s. Please renew to maintain access.",
+                    membership.getEndDate());
+            notificationService.createMembershipNotification(membership.getUser(), message);
+        }
     }
 
     private MembershipResponse mapToMembershipResponse(Membership membership) {
         return MembershipResponse.builder()
                 .id(membership.getId())
-                .userId(membership.getUser().getId())
-                .userEmail(membership.getUser().getEmail())
-                .userFullName(membership.getUser().getName())
-                .userProfilePicture(membership.getUser().getProfilePicture())
+                .userId(membership.getUser() != null ? membership.getUser().getId() : null)
+                .userEmail(membership.getUser() != null ? membership.getUser().getEmail() : null)
+                .userFullName(membership.getUser() != null ? membership.getUser().getName() : "Unknown")
+                .userProfilePicture(membership.getUser() != null ? membership.getUser().getProfilePicture() : null)
                 .type(membership.getType())
                 .status(membership.getStatus())
                 .startDate(membership.getStartDate())
                 .endDate(membership.getEndDate())
                 .fee(membership.getFee())
                 .description(membership.getDescription())
-                .createdBy(membership.getCreatedBy().getName())
+                .createdBy(membership.getCreatedBy() != null ? membership.getCreatedBy().getName() : "Unknown")
                 .createdAt(membership.getCreatedAt())
                 .updatedAt(membership.getUpdatedAt())
                 .lastPaymentDate(membership.getLastPaymentDate())
