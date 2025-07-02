@@ -151,7 +151,7 @@ public class EventService {
     private EventParticipantResponse mapToParticipantResponse(EventAttendance participant) {
         return EventParticipantResponse.builder()
                 .id(participant.getId())
-                .userId(participant.getUser().getId())
+                .userId(participant.getUser() != null ? participant.getUser().getId() : null)
                 .status(participant.getStatus())
                 .build();
     }

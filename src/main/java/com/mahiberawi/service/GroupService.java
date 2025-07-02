@@ -1375,10 +1375,10 @@ public class GroupService {
                 .endTime(event.getEndTime())
                 .location(event.getLocation())
                 .maxParticipants(event.getMaxParticipants())
-                .groupId(event.getGroup().getId())
-                .groupName(event.getGroup().getName())
-                .creatorId(event.getCreator().getId())
-                .creatorName(event.getCreator().getName())
+                .groupId(event.getGroup() != null ? event.getGroup().getId() : null)
+                .groupName(event.getGroup() != null ? event.getGroup().getName() : null)
+                .creatorId(event.getCreator() != null ? event.getCreator().getId() : null)
+                .creatorName(event.getCreator() != null ? event.getCreator().getName() : "Unknown")
                 .createdAt(event.getCreatedAt())
                 .status(event.getStatus())
                 .build();
@@ -1388,8 +1388,8 @@ public class GroupService {
         return com.mahiberawi.dto.message.MessageResponse.builder()
                 .id(message.getId())
                 .content(message.getContent())
-                .senderName(message.getSender().getName())
-                .senderId(message.getSender().getId())
+                .senderName(message.getSender() != null ? message.getSender().getName() : "Unknown")
+                .senderId(message.getSender() != null ? message.getSender().getId() : null)
                 .createdAt(message.getCreatedAt())
                 .groupId(message.getGroup() != null ? message.getGroup().getId() : null)
                 .build();
@@ -1402,7 +1402,7 @@ public class GroupService {
                 .description(payment.getDescription())
                 .status(payment.getStatus())
                 .createdAt(payment.getCreatedAt())
-                .userId(payment.getPayer().getId())
+                .userId(payment.getPayer() != null ? payment.getPayer().getId() : null)
                 .build();
     }
 
