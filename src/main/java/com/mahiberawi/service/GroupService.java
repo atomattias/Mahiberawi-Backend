@@ -361,7 +361,9 @@ public class GroupService {
             throw new UnauthorizedException("You are not a member of this group");
         }
 
-        return group.getMembers().stream()
+        // Use repository query instead of lazy-loaded collection
+        List<GroupMember> members = groupMemberRepository.findByGroup(group);
+        return members.stream()
                 .map(this::mapToMemberResponse)
                 .collect(Collectors.toList());
     }
@@ -1741,6 +1743,31 @@ public class GroupService {
                             .orElse(null);
                     return mapToInvitationResponse(invitation, groupRepository.findById(groupId).orElse(null), inviter, invitation.getInvitationCode());
                 })
+                .collect(Collectors.toList());
+    }
+
+    // ========== ADMIN METHODS ==========
+    
+    public List<GroupResponse> getAllGroups() {
+        List<Group> groups = groupRepository.findAll();
+        return groups.stream()
+                .map(group -> mapToResponse(group, group.getCreator()))
+                .collect(Collectors.toList());
+    }
+    
+    public List<GroupResponse> getActiveGroups() {
+        // Since Group doesn't have a status field, return all groups as "active"
+        List<Group> groups = groupRepository.findAll();
+        return groups.stream()
+                .map(group -> mapToResponse(group, group.getCreator()))
+                .collect(Collectors.toList());
+    }
+    
+    public List<GroupResponse> getRecentGroups(int limit) {
+        List<Group> groups = groupRepository.findTop10ByOrderByCreatedAtDesc();
+        return groups.stream()
+                .limit(limit)
+                .map(group -> mapToResponse(group, group.getCreator()))
                 .collect(Collectors.toList());
     }
 } 

@@ -187,4 +187,21 @@ public class EventService {
         Event updatedEvent = eventRepository.save(event);
         return mapToEventResponse(updatedEvent);
     }
+
+    // ========== ADMIN METHODS ==========
+    
+    public List<EventResponse> getAllEvents() {
+        List<Event> events = eventRepository.findAll();
+        return events.stream()
+                .map(this::mapToEventResponse)
+                .collect(Collectors.toList());
+    }
+    
+    public List<EventResponse> getRecentEvents(int limit) {
+        List<Event> events = eventRepository.findTop10ByOrderByCreatedAtDesc();
+        return events.stream()
+                .limit(limit)
+                .map(this::mapToEventResponse)
+                .collect(Collectors.toList());
+    }
 } 
