@@ -30,4 +30,7 @@ public interface GroupRepository extends JpaRepository<Group, String> {
     
     // Count methods
     int countByCreatorId(String creatorId);
+    
+    // Admin methods
+    List<Group> findTop10ByOrderByCreatedAtDesc();
 } 

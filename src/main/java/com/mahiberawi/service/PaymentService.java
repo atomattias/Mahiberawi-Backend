@@ -155,4 +155,20 @@ public class PaymentService {
                 .updatedAt(payment.getUpdatedAt())
                 .build();
     }
+
+    // ========== ADMIN METHODS ==========
+    
+    public List<PaymentResponse> getAllPayments() {
+        List<Payment> payments = paymentRepository.findAll();
+        return payments.stream()
+                .map(this::mapToPaymentResponse)
+                .collect(Collectors.toList());
+    }
+    
+    public List<PaymentResponse> getCompletedPayments() {
+        List<Payment> payments = paymentRepository.findByStatus(PaymentStatus.COMPLETED);
+        return payments.stream()
+                .map(this::mapToPaymentResponse)
+                .collect(Collectors.toList());
+    }
 } 

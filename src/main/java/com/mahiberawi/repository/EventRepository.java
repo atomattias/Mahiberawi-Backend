@@ -12,4 +12,7 @@ public interface EventRepository extends JpaRepository<Event, String> {
     List<Event> findByGroupId(String groupId);
     List<Event> findByStartTimeAfter(LocalDateTime startTime);
     List<Event> findByStartTimeBetween(LocalDateTime startTime, LocalDateTime endTime);
+    
+    // Admin methods
+    List<Event> findTop10ByOrderByCreatedAtDesc();
 } 

@@ -2,6 +2,7 @@ package com.mahiberawi.service;
 
 import com.mahiberawi.entity.User;
 import com.mahiberawi.entity.UserRole;
+import com.mahiberawi.entity.UserStatus;
 import com.mahiberawi.dto.UserResponse;
 import com.mahiberawi.repository.UserRepository;
 import com.mahiberawi.repository.GroupMemberRepository;
@@ -95,5 +96,36 @@ public class UserService {
                 .groupCount(groupCount)
                 .createdGroups(createdGroups)
                 .build();
+    }
+
+    // ========== ADMIN METHODS ==========
+    
+    public List<UserResponse> getRecentUsers(int limit) {
+        List<User> users = userRepository.findTop10ByOrderByCreatedAtDesc();
+        return users.stream()
+                .limit(limit)
+                .map(this::convertToUserResponse)
+                .collect(Collectors.toList());
+    }
+    
+    public List<UserResponse> getVerifiedUsers() {
+        List<User> users = userRepository.findByIsEmailVerifiedTrue();
+        return users.stream()
+                .map(this::convertToUserResponse)
+                .collect(Collectors.toList());
+    }
+    
+    public List<UserResponse> getUnverifiedUsers() {
+        List<User> users = userRepository.findByIsEmailVerifiedFalse();
+        return users.stream()
+                .map(this::convertToUserResponse)
+                .collect(Collectors.toList());
+    }
+    
+    public List<UserResponse> getActiveUsers() {
+        List<User> users = userRepository.findByStatus(UserStatus.ACTIVE);
+        return users.stream()
+                .map(this::convertToUserResponse)
+                .collect(Collectors.toList());
     }
 } 
