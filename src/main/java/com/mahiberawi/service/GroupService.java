@@ -92,7 +92,7 @@ public class GroupService {
         group.setMemberCount(group.getMemberCount() + 1);
         group = groupRepository.save(group);
 
-        return mapToResponse(group);
+        return mapToResponse(group, creator);
     }
 
     /**
@@ -146,7 +146,7 @@ public class GroupService {
         member.setStatus(GroupMemberStatus.ACTIVE);
         GroupMember savedMember = groupMemberRepository.save(member);
         notifyMemberJoined(savedMember);
-        return mapToResponse(group);
+        return mapToResponse(group, user);
     }
 
     @Transactional
@@ -164,7 +164,7 @@ public class GroupService {
         member.setStatus(GroupMemberStatus.REJECTED);
         GroupMember savedMember = groupMemberRepository.save(member);
         notifyMemberRejected(savedMember);
-        return mapToResponse(group);
+        return mapToResponse(group, user);
     }
 
     @Transactional
@@ -190,7 +190,7 @@ public class GroupService {
         
         group = groupRepository.save(group);
 
-        return mapToResponse(group);
+        return mapToResponse(group, group.getCreator());
     }
 
     @Transactional
@@ -226,14 +226,14 @@ public class GroupService {
         group.setMemberCount(group.getMemberCount() + 1);
         group = groupRepository.save(group);
 
-        return mapToResponse(group);
+        return mapToResponse(group, user);
     }
 
     public List<GroupResponse> getUserGroups(String userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
         return groupRepository.findByMemberId(userId).stream()
-                .map(this::mapToResponse)
+                .map(group -> mapToResponse(group, user))
                 .collect(Collectors.toList());
     }
 
@@ -246,7 +246,7 @@ public class GroupService {
             groups = groupRepository.findByPrivacy(GroupPrivacy.PUBLIC);
         }
         return groups.stream()
-                .map(this::mapToResponse)
+                .map(group -> mapToResponse(group, null))
                 .collect(Collectors.toList());
     }
 
@@ -274,7 +274,7 @@ public class GroupService {
         group.setMemberCount(group.getMemberCount() + 1);
         group = groupRepository.save(group);
 
-        return mapToResponse(group);
+        return mapToResponse(group, user);
     }
 
     @Transactional
@@ -301,13 +301,13 @@ public class GroupService {
         group.setMemberCount(group.getMemberCount() + 1);
         group = groupRepository.save(group);
 
-        return mapToResponse(group);
+        return mapToResponse(group, user);
     }
 
     public List<GroupResponse> getGroupsByUser(User user) {
         List<Group> groups = groupRepository.findByMembersUser(user);
         return groups.stream()
-                .map(this::mapToResponse)
+                .map(group -> mapToResponse(group, null))
                 .collect(Collectors.toList());
     }
 
@@ -318,7 +318,20 @@ public class GroupService {
                 .collect(Collectors.toList());
     }
 
-    private GroupResponse mapToResponse(Group group) {
+    public GroupResponse getGroup(String groupId, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Group not found"));
+        return mapToResponse(group, currentUser);
+    }
+
+    private GroupResponse mapToResponse(Group group, User currentUser) {
+        // Get user's role in the group
+        GroupMemberRole userRole = null;
+        if (currentUser != null) {
+            Optional<GroupMember> member = groupMemberRepository.findByGroupAndUser(group, currentUser);
+            userRole = member.map(GroupMember::getRole).orElse(null);
+        }
+
         return GroupResponse.builder()
                 .id(group.getId())
                 .name(group.getName())
@@ -328,6 +341,7 @@ public class GroupService {
                 .code(group.getCode())
                 .inviteLink(group.getInviteLink())
                 .memberCount(group.getMemberCount())
+                .userRole(userRole)
                 .createdAt(group.getCreatedAt())
                 .allowEventCreation(group.getAllowEventCreation())
                 .allowMemberInvites(group.getAllowMemberInvites())
@@ -517,32 +531,6 @@ public class GroupService {
         notificationService.createGroupNotification(member.getUser(), member.getGroup(), message);
     }
 
-    public GroupResponse getGroup(String groupId) {
-        Group group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new RuntimeException("Group not found"));
-        return mapToGroupResponse(group);
-    }
-
-    private GroupResponse mapToGroupResponse(Group group) {
-        return GroupResponse.builder()
-                .id(group.getId())
-                .name(group.getName())
-                .description(group.getDescription())
-                .type(group.getType())
-                .privacy(group.getPrivacy())
-                .code(group.getCode())
-                .inviteLink(group.getInviteLink())
-                .memberCount(group.getMemberCount())
-                .createdAt(group.getCreatedAt())
-                .allowEventCreation(group.getAllowEventCreation())
-                .allowMemberInvites(group.getAllowMemberInvites())
-                .allowMessagePosting(group.getAllowMessagePosting())
-                .paymentRequired(group.getPaymentRequired())
-                .requireApproval(group.getRequireApproval())
-                .monthlyDues(group.getMonthlyDues())
-                .build();
-    }
-
     @Transactional
     public ApiResponse joinGroup(String groupId, JoinGroupRequest request, User user) {
         Group group = groupRepository.findById(groupId)
@@ -643,7 +631,7 @@ public class GroupService {
                             .success(true)
                             .message("Successfully joined the group")
                             .requiresVerification(false)
-                            .group(mapToResponse(group))
+                            .group(mapToResponse(group, null))
                             .build();
                     
                 } catch (ResourceNotFoundException e) {
@@ -735,7 +723,7 @@ public class GroupService {
                     .success(true)
                     .message("Successfully joined the group")
                     .requiresVerification(false)
-                    .group(mapToResponse(group))
+                    .group(mapToResponse(group, null))
                     .build();
                     
         } catch (ResourceNotFoundException e) {
@@ -1038,7 +1026,7 @@ public class GroupService {
         invitation.setStatus(InvitationStatus.ACCEPTED);
         groupInvitationRepository.save(invitation);
 
-        return mapToResponse(group);
+        return mapToResponse(group, user);
     }
 
     /**
@@ -1420,5 +1408,329 @@ public class GroupService {
 
     private String generateTransactionId() {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+    }
+
+    // ========== PERMISSION CHECKING METHODS ==========
+
+    /**
+     * Get user's permissions for a specific group
+     */
+    public GroupPermissionsResponse getUserPermissions(String groupId, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Get user's role in the group
+        Optional<GroupMember> member = groupMemberRepository.findByGroupAndUser(group, currentUser);
+        String userRole = member.map(m -> m.getRole().name()).orElse(null);
+
+        // Calculate permissions based on role and group settings
+        boolean isAdmin = member.isPresent() && member.get().getRole() == GroupMemberRole.ADMIN;
+        boolean isModerator = member.isPresent() && member.get().getRole() == GroupMemberRole.MODERATOR;
+        boolean isMember = member.isPresent() && member.get().getStatus() == GroupMemberStatus.ACTIVE;
+
+        return GroupPermissionsResponse.builder()
+                .groupId(groupId)
+                .groupName(group.getName())
+                .userRole(userRole)
+                .canCreateEvents(isAdmin || isModerator)
+                .canCreatePosts(isMember && group.getAllowMessagePosting())
+                .canCreatePayments(isAdmin || isModerator)
+                .canSendInvitations(isAdmin || isModerator)
+                .canRevokeInvitations(isAdmin || isModerator)
+                .canManageMembers(isAdmin)
+                .canUpdateGroupSettings(isAdmin)
+                .canDeleteGroup(isAdmin)
+                .canViewMembers(isMember)
+                .canViewEvents(isMember)
+                .canViewPosts(isMember)
+                .canViewPayments(isMember)
+                .canViewInvitations(isAdmin || isModerator)
+                .allowEventCreation(group.getAllowEventCreation())
+                .allowMemberInvites(group.getAllowMemberInvites())
+                .allowMessagePosting(group.getAllowMessagePosting())
+                .paymentRequired(group.getPaymentRequired())
+                .requireApproval(group.getRequireApproval())
+                .build();
+    }
+
+    /**
+     * Check if user has permission to perform an action
+     */
+    private void checkPermission(String groupId, User currentUser, String action, boolean hasPermission) {
+        if (!hasPermission) {
+            Group group = groupRepository.findById(groupId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+            
+            Optional<GroupMember> member = groupMemberRepository.findByGroupAndUser(group, currentUser);
+            String userRole = member.map(m -> m.getRole().name()).orElse("non-member");
+            
+            throw new UnauthorizedException(
+                String.format("You do not have permission to %s in this group. Your role: %s", action, userRole)
+            );
+        }
+    }
+
+    /**
+     * Get group member with permission check
+     */
+    private GroupMember getGroupMemberWithPermission(String groupId, User currentUser, String action) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        GroupMember member = groupMemberRepository.findByGroupAndUser(group, currentUser)
+                .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
+
+        if (member.getStatus() != GroupMemberStatus.ACTIVE) {
+            throw new UnauthorizedException("Your membership is not active in this group");
+        }
+
+        return member;
+    }
+
+    // ========== ENHANCED GROUP-SCOPED ENDPOINTS ==========
+
+    public GroupEventsResponse getGroupEventsWithPermissions(String groupId, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Get user's role and permissions
+        Optional<GroupMember> member = groupMemberRepository.findByGroupAndUser(group, currentUser);
+        String userRole = member.map(m -> m.getRole().name()).orElse(null);
+        boolean canCreateEvents = member.isPresent() && 
+            (member.get().getRole() == GroupMemberRole.ADMIN || member.get().getRole() == GroupMemberRole.MODERATOR) &&
+            group.getAllowEventCreation();
+
+        List<com.mahiberawi.dto.event.EventResponse> events = group.getEvents().stream()
+                .map(this::mapToEventResponse)
+                .collect(Collectors.toList());
+
+        return GroupEventsResponse.builder()
+                .groupId(groupId)
+                .groupName(group.getName())
+                .userRole(userRole)
+                .events(events)
+                .canCreateEvents(canCreateEvents)
+                .totalEvents(events.size())
+                .build();
+    }
+
+    public GroupPostsResponse getGroupPostsWithPermissions(String groupId, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Get user's role and permissions
+        Optional<GroupMember> member = groupMemberRepository.findByGroupAndUser(group, currentUser);
+        String userRole = member.map(m -> m.getRole().name()).orElse(null);
+        boolean canCreatePosts = member.isPresent() && 
+            member.get().getStatus() == GroupMemberStatus.ACTIVE &&
+            group.getAllowMessagePosting();
+
+        List<com.mahiberawi.dto.message.MessageResponse> posts = group.getMessages().stream()
+                .map(this::mapToMessageResponse)
+                .collect(Collectors.toList());
+
+        return GroupPostsResponse.builder()
+                .groupId(groupId)
+                .groupName(group.getName())
+                .userRole(userRole)
+                .posts(posts)
+                .canCreatePosts(canCreatePosts)
+                .totalPosts(posts.size())
+                .build();
+    }
+
+    public GroupPaymentsResponse getGroupPaymentsWithPermissions(String groupId, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Get user's role and permissions
+        Optional<GroupMember> member = groupMemberRepository.findByGroupAndUser(group, currentUser);
+        String userRole = member.map(m -> m.getRole().name()).orElse(null);
+        boolean canCreatePayments = member.isPresent() && 
+            (member.get().getRole() == GroupMemberRole.ADMIN || member.get().getRole() == GroupMemberRole.MODERATOR);
+
+        List<com.mahiberawi.dto.payment.PaymentResponse> payments = paymentRepository.findByGroupId(groupId).stream()
+                .map(this::mapToPaymentResponse)
+                .collect(Collectors.toList());
+
+        return GroupPaymentsResponse.builder()
+                .groupId(groupId)
+                .groupName(group.getName())
+                .userRole(userRole)
+                .payments(payments)
+                .canCreatePayments(canCreatePayments)
+                .totalPayments(payments.size())
+                .build();
+    }
+
+    // ========== ENHANCED PERMISSION-BASED METHODS ==========
+
+    @Transactional
+    public com.mahiberawi.dto.event.EventResponse createGroupEventWithPermission(String groupId, 
+            com.mahiberawi.dto.event.EventRequest request, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Check if user is a member
+        GroupMember member = getGroupMemberWithPermission(groupId, currentUser, "create events");
+
+        // Check if user has permission to create events
+        boolean canCreateEvents = (member.getRole() == GroupMemberRole.ADMIN || member.getRole() == GroupMemberRole.MODERATOR) &&
+                group.getAllowEventCreation();
+        
+        checkPermission(groupId, currentUser, "create events", canCreateEvents);
+
+        // Create event
+        Event event = new Event();
+        event.setTitle(request.getTitle());
+        event.setDescription(request.getDescription());
+        event.setStartTime(request.getStartTime());
+        event.setEndTime(request.getEndTime());
+        event.setLocation(request.getLocation());
+        event.setMaxParticipants(request.getMaxParticipants());
+        event.setGroup(group);
+        event.setCreator(currentUser);
+
+        Event savedEvent = eventRepository.save(event);
+        return mapToEventResponse(savedEvent);
+    }
+
+    @Transactional
+    public com.mahiberawi.dto.message.MessageResponse createGroupPostWithPermission(String groupId, 
+            com.mahiberawi.dto.message.MessageRequest request, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Check if user is a member
+        GroupMember member = getGroupMemberWithPermission(groupId, currentUser, "create posts");
+
+        // Check if user has permission to create posts
+        boolean canCreatePosts = member.getStatus() == GroupMemberStatus.ACTIVE && group.getAllowMessagePosting();
+        
+        checkPermission(groupId, currentUser, "create posts", canCreatePosts);
+
+        // Create message
+        Message message = new Message();
+        message.setContent(request.getContent());
+        message.setType(MessageType.GROUP);
+        message.setSender(currentUser);
+        message.setGroup(group);
+
+        Message savedMessage = messageRepository.save(message);
+        return mapToMessageResponse(savedMessage);
+    }
+
+    @Transactional
+    public com.mahiberawi.dto.payment.PaymentResponse createGroupPaymentWithPermission(String groupId, 
+            com.mahiberawi.dto.payment.PaymentRequest request, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Check if user is a member
+        GroupMember member = getGroupMemberWithPermission(groupId, currentUser, "create payments");
+
+        // Check if user has permission to create payments
+        boolean canCreatePayments = member.getRole() == GroupMemberRole.ADMIN || member.getRole() == GroupMemberRole.MODERATOR;
+        
+        checkPermission(groupId, currentUser, "create payments", canCreatePayments);
+
+        // Create payment
+        Payment payment = new Payment();
+        payment.setAmount(request.getAmount());
+        payment.setMethod(request.getMethod());
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setPayer(currentUser);
+        payment.setGroup(group);
+        payment.setDescription(request.getDescription());
+        payment.setTransactionId(generateTransactionId());
+
+        Payment savedPayment = paymentRepository.save(payment);
+        return mapToPaymentResponse(savedPayment);
+    }
+
+    @Transactional
+    public GroupInvitationResponse createGroupInvitationWithPermission(GroupInvitationRequest request, User currentUser) {
+        // Validate request
+        if (!request.isValid()) {
+            throw new IllegalArgumentException("At least one invitation method (email, phone, or generateCode) must be specified");
+        }
+
+        // Get group and verify permissions
+        Group group = groupRepository.findById(request.getGroupId())
+                .orElseThrow(() -> new ResourceNotFoundException("Group", "id", request.getGroupId()));
+
+        // Check if user is a member
+        GroupMember member = getGroupMemberWithPermission(request.getGroupId(), currentUser, "send invitations");
+
+        // Check if user has permission to send invitations
+        boolean canSendInvitations = (member.getRole() == GroupMemberRole.ADMIN || member.getRole() == GroupMemberRole.MODERATOR) &&
+                group.getAllowMemberInvites();
+        
+        checkPermission(request.getGroupId(), currentUser, "send invitations", canSendInvitations);
+
+        // Calculate expiration time
+        LocalDateTime expiresAt = LocalDateTime.now().plusHours(request.getExpirationHours());
+
+        // Handle email invitation
+        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+            return createEmailInvitation(group, request.getEmail(), currentUser, expiresAt, request.getMessage());
+        }
+
+        // Handle SMS invitation
+        if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
+            return createSMSInvitation(group, request.getPhone(), currentUser, expiresAt, request.getMessage());
+        }
+
+        // Handle code generation
+        if (request.getGenerateCode() != null && request.getGenerateCode()) {
+            return createCodeInvitation(group, currentUser, expiresAt, request.getMessage());
+        }
+
+        throw new IllegalArgumentException("Invalid invitation request");
+    }
+
+    @Transactional
+    public void revokeInvitationWithPermission(String invitationId, User currentUser) {
+        GroupInvitation invitation = groupInvitationRepository.findById(invitationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invitation", "id", invitationId));
+
+        // Check if user is a member
+        GroupMember member = getGroupMemberWithPermission(invitation.getGroupId(), currentUser, "revoke invitations");
+
+        // Check if user has permission to revoke invitations
+        boolean canRevokeInvitations = member.getRole() == GroupMemberRole.ADMIN || member.getRole() == GroupMemberRole.MODERATOR;
+        
+        checkPermission(invitation.getGroupId(), currentUser, "revoke invitations", canRevokeInvitations);
+
+        // Only allow revoking pending invitations
+        if (invitation.getStatus() != InvitationStatus.PENDING) {
+            throw new IllegalStateException("Can only revoke pending invitations");
+        }
+
+        // Update status to revoked
+        invitation.setStatus(InvitationStatus.REJECTED);
+        groupInvitationRepository.save(invitation);
+    }
+
+    // ========== ENHANCED INVITATION RESPONSES ==========
+
+    public List<GroupInvitationResponse> getGroupInvitationsWithPermissions(String groupId, User currentUser) {
+        // Check if user is a member
+        GroupMember member = getGroupMemberWithPermission(groupId, currentUser, "view invitations");
+
+        // Check if user has permission to view invitations
+        boolean canViewInvitations = member.getRole() == GroupMemberRole.ADMIN || member.getRole() == GroupMemberRole.MODERATOR;
+        
+        checkPermission(groupId, currentUser, "view invitations", canViewInvitations);
+
+        List<GroupInvitation> invitations = groupInvitationRepository.findByGroupId(groupId);
+        
+        return invitations.stream()
+                .map(invitation -> {
+                    User inviter = userRepository.findById(invitation.getInvitedBy())
+                            .orElse(null);
+                    return mapToInvitationResponse(invitation, groupRepository.findById(groupId).orElse(null), inviter, invitation.getInvitationCode());
+                })
+                .collect(Collectors.toList());
     }
 } 

@@ -11,6 +11,10 @@ import com.mahiberawi.dto.group.JoinResponse;
 import com.mahiberawi.dto.group.GroupInvitationRequest;
 import com.mahiberawi.dto.group.GroupInvitationResponse;
 import com.mahiberawi.dto.group.UpdateRoleRequest;
+import com.mahiberawi.dto.group.GroupPermissionsResponse;
+import com.mahiberawi.dto.group.GroupEventsResponse;
+import com.mahiberawi.dto.group.GroupPostsResponse;
+import com.mahiberawi.dto.group.GroupPaymentsResponse;
 import com.mahiberawi.entity.User;
 import com.mahiberawi.entity.enums.GroupMemberRole;
 import com.mahiberawi.service.GroupService;
@@ -93,8 +97,10 @@ public class GroupController {
                 example = "550e8400-e29b-41d4-a716-446655440000",
                 required = true
             )
-            @PathVariable String id) {
-        GroupResponse group = groupService.getGroup(id);
+            @PathVariable String id,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        GroupResponse group = groupService.getGroup(id, user);
         return ResponseEntity.ok(group);
     }
 
@@ -1022,5 +1028,267 @@ public class GroupController {
             @AuthenticationPrincipal User user) {
         List<GroupResponse> groups = groupService.getGroupsByUser(user);
         return ResponseEntity.ok(groups);
+    }
+
+    // ========== PERMISSIONS ENDPOINT ==========
+
+    @Operation(
+        summary = "Get user permissions for group",
+        description = "Returns the current user's permissions and role for a specific group. " +
+                     "This allows the frontend to dynamically show/hide features based on permissions."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Permissions retrieved successfully",
+            content = @Content(schema = @Schema(implementation = GroupPermissionsResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @GetMapping("/{groupId}/permissions")
+    public ResponseEntity<GroupPermissionsResponse> getUserPermissions(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        GroupPermissionsResponse permissions = groupService.getUserPermissions(groupId, user);
+        return ResponseEntity.ok(permissions);
+    }
+
+    // ========== ENHANCED GROUP-SCOPED ENDPOINTS ==========
+
+    @Operation(
+        summary = "Get group events with permissions",
+        description = "Retrieves all events for a specific group with user role and permissions. " +
+                     "Only accessible by group members."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Events retrieved successfully",
+            content = @Content(schema = @Schema(implementation = GroupEventsResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not a member of the group"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @GetMapping("/{groupId}/events/with-permissions")
+    public ResponseEntity<GroupEventsResponse> getGroupEventsWithPermissions(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        GroupEventsResponse response = groupService.getGroupEventsWithPermissions(groupId, user);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+        summary = "Get group posts with permissions",
+        description = "Retrieves all posts for a specific group with user role and permissions. " +
+                     "Only accessible by group members."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Posts retrieved successfully",
+            content = @Content(schema = @Schema(implementation = GroupPostsResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not a member of the group"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @GetMapping("/{groupId}/posts/with-permissions")
+    public ResponseEntity<GroupPostsResponse> getGroupPostsWithPermissions(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        GroupPostsResponse response = groupService.getGroupPostsWithPermissions(groupId, user);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+        summary = "Get group payments with permissions",
+        description = "Retrieves all payments for a specific group with user role and permissions. " +
+                     "Only accessible by group members."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Payments retrieved successfully",
+            content = @Content(schema = @Schema(implementation = GroupPaymentsResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not a member of the group"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @GetMapping("/{groupId}/payments/with-permissions")
+    public ResponseEntity<GroupPaymentsResponse> getGroupPaymentsWithPermissions(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        GroupPaymentsResponse response = groupService.getGroupPaymentsWithPermissions(groupId, user);
+        return ResponseEntity.ok(response);
+    }
+
+    // ========== ENHANCED PERMISSION-BASED ENDPOINTS ==========
+
+    @Operation(
+        summary = "Create group event with permission check",
+        description = "Creates a new event for a specific group with enhanced permission checking. " +
+                     "Only admins and moderators can create events if group settings allow it."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Event created successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.event.EventResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid event details"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to create events"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @PostMapping("/{groupId}/events/with-permission")
+    public ResponseEntity<com.mahiberawi.dto.event.EventResponse> createGroupEventWithPermission(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(description = "Event creation details", required = true)
+            @Valid @RequestBody com.mahiberawi.dto.event.EventRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        com.mahiberawi.dto.event.EventResponse event = groupService.createGroupEventWithPermission(groupId, request, user);
+        return ResponseEntity.ok(event);
+    }
+
+    @Operation(
+        summary = "Create group post with permission check",
+        description = "Creates a new post for a specific group with enhanced permission checking. " +
+                     "Only active members can create posts if group settings allow it."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Post created successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.message.MessageResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid post details"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to create posts"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @PostMapping("/{groupId}/posts/with-permission")
+    public ResponseEntity<com.mahiberawi.dto.message.MessageResponse> createGroupPostWithPermission(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(description = "Post creation details", required = true)
+            @Valid @RequestBody com.mahiberawi.dto.message.MessageRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        com.mahiberawi.dto.message.MessageResponse post = groupService.createGroupPostWithPermission(groupId, request, user);
+        return ResponseEntity.ok(post);
+    }
+
+    @Operation(
+        summary = "Create group payment with permission check",
+        description = "Creates a new payment for a specific group with enhanced permission checking. " +
+                     "Only admins and moderators can create payments."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Payment created successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.payment.PaymentResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid payment details"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to create payments"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @PostMapping("/{groupId}/payments/with-permission")
+    public ResponseEntity<com.mahiberawi.dto.payment.PaymentResponse> createGroupPaymentWithPermission(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(description = "Payment creation details", required = true)
+            @Valid @RequestBody com.mahiberawi.dto.payment.PaymentRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        com.mahiberawi.dto.payment.PaymentResponse payment = groupService.createGroupPaymentWithPermission(groupId, request, user);
+        return ResponseEntity.ok(payment);
+    }
+
+    @Operation(
+        summary = "Create group invitation with permission check",
+        description = "Creates a new group invitation with enhanced permission checking. " +
+                     "Only admins and moderators can send invitations if group settings allow it."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Invitation created successfully",
+            content = @Content(schema = @Schema(implementation = GroupInvitationResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid invitation request"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to send invitations"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @PostMapping("/invitations/with-permission")
+    public ResponseEntity<GroupInvitationResponse> createGroupInvitationWithPermission(
+            @Parameter(description = "Invitation details", required = true)
+            @Valid @RequestBody GroupInvitationRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        GroupInvitationResponse invitation = groupService.createGroupInvitationWithPermission(request, user);
+        return ResponseEntity.ok(invitation);
+    }
+
+    @Operation(
+        summary = "Revoke group invitation with permission check",
+        description = "Revokes a pending group invitation with enhanced permission checking. " +
+                     "Only admins and moderators can revoke invitations."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Invitation revoked successfully"),
+        @ApiResponse(responseCode = "400", description = "Cannot revoke non-pending invitation"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to revoke invitations"),
+        @ApiResponse(responseCode = "404", description = "Invitation not found")
+    })
+    @DeleteMapping("/invitations/{invitationId}/with-permission")
+    public ResponseEntity<Void> revokeInvitationWithPermission(
+            @Parameter(description = "ID of the invitation to revoke", required = true)
+            @PathVariable String invitationId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        groupService.revokeInvitationWithPermission(invitationId, user);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+        summary = "Get group invitations with permission check",
+        description = "Retrieves all invitations for a specific group with enhanced permission checking. " +
+                     "Only admins and moderators can view invitations."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Invitations retrieved successfully",
+            content = @Content(schema = @Schema(implementation = GroupInvitationResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to view invitations"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @GetMapping("/{groupId}/invitations/with-permissions")
+    public ResponseEntity<List<GroupInvitationResponse>> getGroupInvitationsWithPermissions(
+            @Parameter(description = "ID of the group", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<GroupInvitationResponse> invitations = groupService.getGroupInvitationsWithPermissions(groupId, user);
+        return ResponseEntity.ok(invitations);
     }
 } 
