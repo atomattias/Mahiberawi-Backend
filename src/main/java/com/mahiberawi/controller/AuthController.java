@@ -229,6 +229,27 @@ public class AuthController {
     }
 
     @Operation(
+        summary = "Refresh authentication token",
+        description = "Refreshes the JWT token using a valid refresh token"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Token refreshed successfully",
+            content = @Content(schema = @Schema(implementation = AuthResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Invalid refresh token"),
+        @ApiResponse(responseCode = "403", description = "Refresh token expired")
+    })
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refreshToken(
+            @Parameter(description = "Refresh token", required = true)
+            @RequestParam String refreshToken) {
+        AuthResponse response = authService.refreshToken(refreshToken);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(
         summary = "Logout user",
         description = "Logs out the current user. Since JWT tokens are stateless, " +
                      "this endpoint returns success and the client should clear local tokens."

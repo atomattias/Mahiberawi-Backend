@@ -111,7 +111,7 @@ public class MessageService {
         Message message = messageRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Message", "id", id));
 
-        if (!message.getSender().getId().equals(user.getId())) {
+        if (message.getSender() == null || !message.getSender().getId().equals(user.getId())) {
             throw new IllegalStateException("User is not authorized to delete this message");
         }
 
@@ -121,15 +121,27 @@ public class MessageService {
     private void notifyRecipients(Message message) {
         switch (message.getType()) {
             case DIRECT:
-                notificationService.createMessageNotification(message.getRecipient(), message);
+                if (message.getRecipient() != null) {
+                    notificationService.createMessageNotification(message.getRecipient(), message);
+                }
                 break;
             case GROUP:
-                message.getGroup().getMembers().forEach(member ->
-                        notificationService.createMessageNotification(member.getUser(), message));
+                if (message.getGroup() != null && message.getGroup().getMembers() != null) {
+                    message.getGroup().getMembers().forEach(member -> {
+                        if (member != null && member.getUser() != null) {
+                            notificationService.createMessageNotification(member.getUser(), message);
+                        }
+                    });
+                }
                 break;
             case EVENT:
-                message.getEvent().getParticipants().forEach(participant ->
-                        notificationService.createMessageNotification(participant.getUser(), message));
+                if (message.getEvent() != null && message.getEvent().getParticipants() != null) {
+                    message.getEvent().getParticipants().forEach(participant -> {
+                        if (participant != null && participant.getUser() != null) {
+                            notificationService.createMessageNotification(participant.getUser(), message);
+                        }
+                    });
+                }
                 break;
         }
     }

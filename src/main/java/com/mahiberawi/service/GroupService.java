@@ -418,12 +418,12 @@ public class GroupService {
                 .orElseThrow(() -> new ResourceNotFoundException("Member not found with id: " + memberId));
 
         // Check if member belongs to the group
-        if (!memberToRemove.getGroup().getId().equals(groupId)) {
+        if (memberToRemove.getGroup() == null || !memberToRemove.getGroup().getId().equals(groupId)) {
             throw new ResourceNotFoundException("Member does not belong to this group");
         }
 
         // Check permissions
-        if (!memberToRemove.getUser().getId().equals(currentUser.getId())) {
+        if (memberToRemove.getUser() == null || !memberToRemove.getUser().getId().equals(currentUser.getId())) {
             // If not removing self, must be admin
             GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
                     .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
@@ -492,9 +492,9 @@ public class GroupService {
     private GroupMemberResponse mapToMemberResponse(GroupMember member) {
         return GroupMemberResponse.builder()
                 .id(member.getId())
-                .userId(member.getUser().getId())
-                .email(member.getUser().getEmail())
-                .name(member.getUser().getName())
+                .userId(member.getUser() != null ? member.getUser().getId() : null)
+                .email(member.getUser() != null ? member.getUser().getEmail() : null)
+                .name(member.getUser() != null ? member.getUser().getName() : "Unknown")
                 .role(member.getRole())
                 .status(member.getStatus())
                 .joinedAt(member.getJoinedAt())
@@ -502,33 +502,43 @@ public class GroupService {
     }
 
     private void notifyMemberInvited(GroupMember member) {
-        String message = String.format("You have been invited to join the group '%s' as %s",
-                member.getGroup().getName(), member.getRole());
-        notificationService.createGroupNotification(member.getUser(), member.getGroup(), message);
+        if (member.getGroup() != null && member.getUser() != null) {
+            String message = String.format("You have been invited to join the group '%s' as %s",
+                    member.getGroup().getName(), member.getRole());
+            notificationService.createGroupNotification(member.getUser(), member.getGroup(), message);
+        }
     }
 
     private void notifyMemberJoined(GroupMember member) {
-        String message = String.format("%s has joined the group '%s'",
-                member.getUser().getName(), member.getGroup().getName());
-        notificationService.createGroupNotification(member.getGroup().getCreator(), member.getGroup(), message);
+        if (member.getGroup() != null && member.getUser() != null && member.getGroup().getCreator() != null) {
+            String message = String.format("%s has joined the group '%s'",
+                    member.getUser().getName(), member.getGroup().getName());
+            notificationService.createGroupNotification(member.getGroup().getCreator(), member.getGroup(), message);
+        }
     }
 
     private void notifyMemberRejected(GroupMember member) {
-        String message = String.format("%s has declined the invitation to join the group '%s'",
-                member.getUser().getName(), member.getGroup().getName());
-        notificationService.createGroupNotification(member.getGroup().getCreator(), member.getGroup(), message);
+        if (member.getGroup() != null && member.getUser() != null && member.getGroup().getCreator() != null) {
+            String message = String.format("%s has declined the invitation to join the group '%s'",
+                    member.getUser().getName(), member.getGroup().getName());
+            notificationService.createGroupNotification(member.getGroup().getCreator(), member.getGroup(), message);
+        }
     }
 
     private void notifyMemberRoleUpdated(GroupMember member) {
-        String message = String.format("Your role in the group '%s' has been updated to %s",
-                member.getGroup().getName(), member.getRole());
-        notificationService.createGroupNotification(member.getUser(), member.getGroup(), message);
+        if (member.getGroup() != null && member.getUser() != null) {
+            String message = String.format("Your role in the group '%s' has been updated to %s",
+                    member.getGroup().getName(), member.getRole());
+            notificationService.createGroupNotification(member.getUser(), member.getGroup(), message);
+        }
     }
 
     private void notifyMemberRemoved(GroupMember member) {
-        String message = String.format("You have been removed from the group '%s'",
-                member.getGroup().getName());
-        notificationService.createGroupNotification(member.getUser(), member.getGroup(), message);
+        if (member.getGroup() != null && member.getUser() != null) {
+            String message = String.format("You have been removed from the group '%s'",
+                    member.getGroup().getName());
+            notificationService.createGroupNotification(member.getUser(), member.getGroup(), message);
+        }
     }
 
     @Transactional
@@ -1248,12 +1258,12 @@ public class GroupService {
                 .orElseThrow(() -> new ResourceNotFoundException("Member not found with id: " + memberId));
 
         // Check if member belongs to the group
-        if (!memberToRemove.getGroup().getId().equals(groupId)) {
+        if (memberToRemove.getGroup() == null || !memberToRemove.getGroup().getId().equals(groupId)) {
             throw new ResourceNotFoundException("Member does not belong to this group");
         }
 
         // Check permissions
-        if (!memberToRemove.getUser().getId().equals(currentUser.getId())) {
+        if (memberToRemove.getUser() == null || !memberToRemove.getUser().getId().equals(currentUser.getId())) {
             // If not removing self, must be admin
             GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
                     .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
@@ -1302,7 +1312,7 @@ public class GroupService {
                 .orElseThrow(() -> new ResourceNotFoundException("Member not found with id: " + memberId));
 
         // Check if member belongs to the group
-        if (!memberToUpdate.getGroup().getId().equals(groupId)) {
+        if (memberToUpdate.getGroup() == null || !memberToUpdate.getGroup().getId().equals(groupId)) {
             throw new ResourceNotFoundException("Member does not belong to this group");
         }
 
