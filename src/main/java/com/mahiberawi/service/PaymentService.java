@@ -110,9 +110,9 @@ public class PaymentService {
     private PaymentResponse mapToPaymentResponse(Payment payment) {
         return PaymentResponse.builder()
                 .id(payment.getId())
-                .userId(payment.getPayer().getId())
-                .userFullName(payment.getPayer().getName())
-                .userEmail(payment.getPayer().getEmail())
+                .userId(payment.getPayer() != null ? payment.getPayer().getId() : null)
+                .userFullName(payment.getPayer() != null ? payment.getPayer().getName() : "Unknown")
+                .userEmail(payment.getPayer() != null ? payment.getPayer().getEmail() : null)
                 .amount(payment.getAmount())
                 .method(payment.getMethod())
                 .status(payment.getStatus())
