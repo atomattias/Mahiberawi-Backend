@@ -237,6 +237,7 @@ public class GroupService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<GroupResponse> getPublicGroups(String search) {
         List<Group> groups;
         if (search != null && !search.trim().isEmpty()) {
@@ -304,6 +305,7 @@ public class GroupService {
         return mapToResponse(group, user);
     }
 
+    @Transactional(readOnly = true)
     public List<GroupResponse> getGroupsByUser(User user) {
         List<Group> groups = groupRepository.findByMembersUser(user);
         return groups.stream()
@@ -311,6 +313,7 @@ public class GroupService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<GroupMemberResponse> getUserMemberships(User user) {
         List<GroupMember> memberships = groupMemberRepository.findByUser(user);
         return memberships.stream()
@@ -318,6 +321,7 @@ public class GroupService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public GroupResponse getGroup(String groupId, User currentUser) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new RuntimeException("Group not found"));
@@ -352,6 +356,7 @@ public class GroupService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
     public List<GroupMemberResponse> getGroupMembers(String groupId, User currentUser) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
@@ -791,6 +796,7 @@ public class GroupService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
     public boolean userHasGroups(User user) {
         return !groupRepository.findByMemberId(user.getId()).isEmpty();
     }
@@ -1074,6 +1080,7 @@ public class GroupService {
 
     // ========== GROUP-SPECIFIC ACTIVITIES METHODS ==========
 
+    @Transactional(readOnly = true)
     public List<com.mahiberawi.dto.event.EventResponse> getGroupEvents(String groupId, User currentUser) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
@@ -1123,6 +1130,7 @@ public class GroupService {
         return mapToEventResponse(savedEvent);
     }
 
+    @Transactional(readOnly = true)
     public List<com.mahiberawi.dto.message.MessageResponse> getGroupPosts(String groupId, User currentUser) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
@@ -1163,6 +1171,7 @@ public class GroupService {
         return mapToMessageResponse(savedMessage);
     }
 
+    @Transactional(readOnly = true)
     public List<com.mahiberawi.dto.payment.PaymentResponse> getGroupPayments(String groupId, User currentUser) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
@@ -1337,6 +1346,7 @@ public class GroupService {
 
     // ========== USER AGGREGATED METHODS (HOME SCREEN) ==========
 
+    @Transactional(readOnly = true)
     public List<com.mahiberawi.dto.event.EventResponse> getUserGroupEvents(User currentUser) {
         List<Group> userGroups = groupRepository.findByMemberId(currentUser.getId());
         List<Event> allEvents = new ArrayList<>();
@@ -1350,6 +1360,7 @@ public class GroupService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<com.mahiberawi.dto.message.MessageResponse> getUserGroupPosts(User currentUser) {
         List<Group> userGroups = groupRepository.findByMemberId(currentUser.getId());
         List<Message> allMessages = new ArrayList<>();
@@ -1363,6 +1374,7 @@ public class GroupService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<com.mahiberawi.dto.payment.PaymentResponse> getUserGroupPayments(User currentUser) {
         List<Group> userGroups = groupRepository.findByMemberId(currentUser.getId());
         List<Payment> allPayments = new ArrayList<>();
@@ -1387,12 +1399,14 @@ public class GroupService {
                 .endTime(event.getEndTime())
                 .location(event.getLocation())
                 .maxParticipants(event.getMaxParticipants())
+                .currentParticipants(0) // Set to 0 to avoid lazy loading issues
                 .groupId(event.getGroup() != null ? event.getGroup().getId() : null)
                 .groupName(event.getGroup() != null ? event.getGroup().getName() : null)
                 .creatorId(event.getCreator() != null ? event.getCreator().getId() : null)
                 .creatorName(event.getCreator() != null ? event.getCreator().getName() : "Unknown")
                 .createdAt(event.getCreatedAt())
                 .status(event.getStatus())
+                .participants(null) // Set to null to avoid lazy loading issues
                 .build();
     }
 
@@ -1427,6 +1441,7 @@ public class GroupService {
     /**
      * Get user's permissions for a specific group
      */
+    @Transactional(readOnly = true)
     public GroupPermissionsResponse getUserPermissions(String groupId, User currentUser) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
@@ -1501,6 +1516,7 @@ public class GroupService {
 
     // ========== ENHANCED GROUP-SCOPED ENDPOINTS ==========
 
+    @Transactional(readOnly = true)
     public GroupEventsResponse getGroupEventsWithPermissions(String groupId, User currentUser) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
@@ -1526,6 +1542,7 @@ public class GroupService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
     public GroupPostsResponse getGroupPostsWithPermissions(String groupId, User currentUser) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
@@ -1551,6 +1568,7 @@ public class GroupService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
     public GroupPaymentsResponse getGroupPaymentsWithPermissions(String groupId, User currentUser) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
@@ -1726,6 +1744,7 @@ public class GroupService {
 
     // ========== ENHANCED INVITATION RESPONSES ==========
 
+    @Transactional(readOnly = true)
     public List<GroupInvitationResponse> getGroupInvitationsWithPermissions(String groupId, User currentUser) {
         // Check if user is a member
         GroupMember member = getGroupMemberWithPermission(groupId, currentUser, "view invitations");
