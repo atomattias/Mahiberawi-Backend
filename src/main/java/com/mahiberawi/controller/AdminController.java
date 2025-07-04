@@ -1,6 +1,7 @@
 package com.mahiberawi.controller;
 
 import com.mahiberawi.dto.ApiResponse;
+import com.mahiberawi.dto.UserResponse;
 import com.mahiberawi.entity.User;
 import com.mahiberawi.entity.UserRole;
 import com.mahiberawi.service.UserService;
@@ -14,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
 
