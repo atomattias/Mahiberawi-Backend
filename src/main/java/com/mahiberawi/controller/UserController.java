@@ -95,6 +95,7 @@ public class UserController {
                 .build());
     }
 
+
     @PatchMapping("/{userId}/role")
     public ResponseEntity<ApiResponse> updateUserRole(
             @PathVariable String userId,

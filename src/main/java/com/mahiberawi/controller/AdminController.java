@@ -165,6 +165,38 @@ public class AdminController {
         }
     }
     
+
+        @PatchMapping("/users/{userId}/role")
+    public ResponseEntity<ApiResponse> updateUserRole(
+            @PathVariable String userId,
+            @Valid @RequestBody com.mahiberawi.dto.user.UpdateUserRoleRequest request,
+            @AuthenticationPrincipal User currentUser) {
+        // Check if user is super admin
+        if (!userService.isSuperAdmin(currentUser)) {
+            throw new UnauthorizedException("Only super admins can update user roles");
+        }
+        
+        try {
+            UserResponse updatedUser = userService.updateUserRole(userId, request.getRole());
+            
+            log.info("User role updated by super admin {}: user {} -> role {}", 
+                    currentUser.getEmail(), userId, request.getRole());
+            
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(true)
+                    .data(updatedUser)
+                    .message("User role updated successfully")
+                    .build());
+                    
+        } catch (Exception e) {
+            log.error("Error updating user role: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .success(false)
+                    .message("Failed to update user role: " + e.getMessage())
+                    .build());
+        }
+    }
+    
     // ========== TEMPORARY PROMOTION ENDPOINTS ==========
     
     @PostMapping("/promote/{email}")
