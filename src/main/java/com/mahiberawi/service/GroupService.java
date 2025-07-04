@@ -1090,7 +1090,9 @@ public class GroupService {
             throw new UnauthorizedException("You are not a member of this group");
         }
 
-        return group.getEvents().stream()
+        // Use repository to fetch events directly instead of lazy loading
+        List<Event> events = eventRepository.findByGroupId(groupId);
+        return events.stream()
                 .map(this::mapToEventResponse)
                 .collect(Collectors.toList());
     }
@@ -1140,7 +1142,9 @@ public class GroupService {
             throw new UnauthorizedException("You are not a member of this group");
         }
 
-        return group.getMessages().stream()
+        // Use repository to fetch messages directly instead of lazy loading
+        List<Message> messages = messageRepository.findByGroupId(groupId);
+        return messages.stream()
                 .map(this::mapToMessageResponse)
                 .collect(Collectors.toList());
     }
@@ -1352,7 +1356,9 @@ public class GroupService {
         List<Event> allEvents = new ArrayList<>();
         
         for (Group group : userGroups) {
-            allEvents.addAll(group.getEvents());
+            // Use repository to fetch events directly instead of lazy loading
+            List<Event> groupEvents = eventRepository.findByGroupId(group.getId());
+            allEvents.addAll(groupEvents);
         }
         
         return allEvents.stream()
@@ -1366,7 +1372,9 @@ public class GroupService {
         List<Message> allMessages = new ArrayList<>();
         
         for (Group group : userGroups) {
-            allMessages.addAll(group.getMessages());
+            // Use repository to fetch messages directly instead of lazy loading
+            List<Message> groupMessages = messageRepository.findByGroupId(group.getId());
+            allMessages.addAll(groupMessages);
         }
         
         return allMessages.stream()
@@ -1380,7 +1388,9 @@ public class GroupService {
         List<Payment> allPayments = new ArrayList<>();
         
         for (Group group : userGroups) {
-            allPayments.addAll(paymentRepository.findByGroupId(group.getId()));
+            // Use repository to fetch payments directly instead of lazy loading
+            List<Payment> groupPayments = paymentRepository.findByGroupId(group.getId());
+            allPayments.addAll(groupPayments);
         }
         
         return allPayments.stream()
@@ -1528,7 +1538,9 @@ public class GroupService {
             (member.get().getRole() == GroupMemberRole.ADMIN || member.get().getRole() == GroupMemberRole.MODERATOR) &&
             group.getAllowEventCreation();
 
-        List<com.mahiberawi.dto.event.EventResponse> events = group.getEvents().stream()
+        // Use repository to fetch events directly instead of lazy loading
+        List<Event> events = eventRepository.findByGroupId(groupId);
+        List<com.mahiberawi.dto.event.EventResponse> eventResponses = events.stream()
                 .map(this::mapToEventResponse)
                 .collect(Collectors.toList());
 
@@ -1536,9 +1548,9 @@ public class GroupService {
                 .groupId(groupId)
                 .groupName(group.getName())
                 .userRole(userRole)
-                .events(events)
+                .events(eventResponses)
                 .canCreateEvents(canCreateEvents)
-                .totalEvents(events.size())
+                .totalEvents(eventResponses.size())
                 .build();
     }
 
@@ -1554,7 +1566,9 @@ public class GroupService {
             member.get().getStatus() == GroupMemberStatus.ACTIVE &&
             group.getAllowMessagePosting();
 
-        List<com.mahiberawi.dto.message.MessageResponse> posts = group.getMessages().stream()
+        // Use repository to fetch messages directly instead of lazy loading
+        List<Message> messages = messageRepository.findByGroupId(groupId);
+        List<com.mahiberawi.dto.message.MessageResponse> posts = messages.stream()
                 .map(this::mapToMessageResponse)
                 .collect(Collectors.toList());
 
