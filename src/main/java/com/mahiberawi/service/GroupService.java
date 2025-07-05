@@ -31,6 +31,7 @@ import com.mahiberawi.entity.Payment;
 import com.mahiberawi.repository.EventRepository;
 import com.mahiberawi.repository.MessageRepository;
 import com.mahiberawi.repository.PaymentRepository;
+import com.mahiberawi.repository.PostReactionRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -44,6 +45,7 @@ public class GroupService {
     private final EventRepository eventRepository;
     private final MessageRepository messageRepository;
     private final PaymentRepository paymentRepository;
+    private final PostReactionRepository postReactionRepository;
 
     @Transactional
     public GroupResponse createGroup(GroupRequest request, User creator) {
@@ -1171,6 +1173,19 @@ public class GroupService {
         message.setSender(currentUser);
         message.setGroup(group);
 
+        // Handle threading - validate parent message exists and belongs to same group
+        if (request.getParentMessageId() != null) {
+            Message parentMessage = messageRepository.findById(request.getParentMessageId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Parent message", "id", request.getParentMessageId()));
+            
+            // Validate parent message belongs to same group
+            if (parentMessage.getGroup() == null || !parentMessage.getGroup().getId().equals(groupId)) {
+                throw new IllegalStateException("Parent message must belong to the same group");
+            }
+            
+            message.setParentMessage(parentMessage);
+        }
+
         Message savedMessage = messageRepository.save(message);
         return mapToMessageResponse(savedMessage);
     }
@@ -1421,13 +1436,34 @@ public class GroupService {
     }
 
     private com.mahiberawi.dto.message.MessageResponse mapToMessageResponse(Message message) {
+        // Get reaction counts
+        List<Object[]> reactionCounts = postReactionRepository.getReactionCountsByPost(message.getId());
+        Map<String, Integer> reactions = new HashMap<>();
+        
+        for (Object[] result : reactionCounts) {
+            String reactionType = (String) result[0];
+            Long count = (Long) result[1];
+            reactions.put(reactionType, count.intValue());
+        }
+
         return com.mahiberawi.dto.message.MessageResponse.builder()
                 .id(message.getId())
                 .content(message.getContent())
+                .type(message.getType())
                 .senderName(message.getSender() != null ? message.getSender().getName() : "Unknown")
                 .senderId(message.getSender() != null ? message.getSender().getId() : null)
-                .createdAt(message.getCreatedAt())
+                .senderProfilePicture(message.getSender() != null ? message.getSender().getProfilePicture() : null)
+                .recipientId(message.getRecipient() != null ? message.getRecipient().getId() : null)
+                .recipientName(message.getRecipient() != null ? message.getRecipient().getName() : null)
                 .groupId(message.getGroup() != null ? message.getGroup().getId() : null)
+                .groupName(message.getGroup() != null ? message.getGroup().getName() : null)
+                .eventId(message.getEvent() != null ? message.getEvent().getId() : null)
+                .eventTitle(message.getEvent() != null ? message.getEvent().getTitle() : null)
+                .parentMessageId(message.getParentMessage() != null ? message.getParentMessage().getId() : null)
+                .createdAt(message.getCreatedAt())
+                .updatedAt(message.getUpdatedAt())
+                .isRead(message.isRead())
+                .reactions(reactions)
                 .build();
     }
 

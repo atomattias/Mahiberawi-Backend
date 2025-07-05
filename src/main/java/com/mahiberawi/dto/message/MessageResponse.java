@@ -6,6 +6,7 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -27,4 +28,8 @@ public class MessageResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean isRead;
+    
+    // New fields for threading and reactions
+    private Map<String, Integer> reactions; // reaction type -> count
+    private String userReaction; // current user's reaction to this post
 } 

@@ -2,21 +2,28 @@ package com.mahiberawi.service;
 
 import com.mahiberawi.dto.message.MessageRequest;
 import com.mahiberawi.dto.message.MessageResponse;
+import com.mahiberawi.dto.message.ReactionRequest;
+import com.mahiberawi.dto.message.ReactionResponse;
 import com.mahiberawi.entity.Event;
 import com.mahiberawi.entity.Group;
 import com.mahiberawi.entity.Message;
+import com.mahiberawi.entity.PostReaction;
 import com.mahiberawi.entity.User;
 import com.mahiberawi.entity.MessageType;
 import com.mahiberawi.exception.ResourceNotFoundException;
 import com.mahiberawi.repository.EventRepository;
 import com.mahiberawi.repository.GroupRepository;
 import com.mahiberawi.repository.MessageRepository;
+import com.mahiberawi.repository.PostReactionRepository;
 import com.mahiberawi.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,6 +33,7 @@ public class MessageService {
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
     private final EventRepository eventRepository;
+    private final PostReactionRepository postReactionRepository;
     private final NotificationService notificationService;
 
     @Transactional
@@ -55,40 +63,47 @@ public class MessageService {
 
         if (request.getParentMessageId() != null) {
             Message parentMessage = messageRepository.findById(request.getParentMessageId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Message", "id", request.getParentMessageId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Parent message", "id", request.getParentMessageId()));
+            
+            if (request.getGroupId() != null && parentMessage.getGroup() != null) {
+                if (!parentMessage.getGroup().getId().equals(request.getGroupId())) {
+                    throw new IllegalStateException("Parent message must belong to the same group");
+                }
+            }
+            
             message.setParentMessage(parentMessage);
         }
 
         Message savedMessage = messageRepository.save(message);
         notifyRecipients(savedMessage);
-        return mapToMessageResponse(savedMessage);
+        return mapToMessageResponse(savedMessage, sender);
     }
 
-    public MessageResponse getMessage(String id) {
+    public MessageResponse getMessage(String id, User currentUser) {
         Message message = messageRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Message", "id", id));
-        return mapToMessageResponse(message);
+        return mapToMessageResponse(message, currentUser);
     }
 
-    public List<MessageResponse> getDirectMessages(String userId) {
+    public List<MessageResponse> getDirectMessages(String userId, User currentUser) {
         List<Message> messages = messageRepository.findByTypeAndRecipientIdOrSenderId(
                 MessageType.DIRECT, userId, userId);
         return messages.stream()
-                .map(this::mapToMessageResponse)
+                .map(message -> mapToMessageResponse(message, currentUser))
                 .collect(Collectors.toList());
     }
 
-    public List<MessageResponse> getGroupMessages(String groupId) {
+    public List<MessageResponse> getGroupMessages(String groupId, User currentUser) {
         List<Message> messages = messageRepository.findByTypeAndGroupId(MessageType.GROUP, groupId);
         return messages.stream()
-                .map(this::mapToMessageResponse)
+                .map(message -> mapToMessageResponse(message, currentUser))
                 .collect(Collectors.toList());
     }
 
-    public List<MessageResponse> getEventMessages(String eventId) {
+    public List<MessageResponse> getEventMessages(String eventId, User currentUser) {
         List<Message> messages = messageRepository.findByTypeAndEventId(MessageType.EVENT, eventId);
         return messages.stream()
-                .map(this::mapToMessageResponse)
+                .map(message -> mapToMessageResponse(message, currentUser))
                 .collect(Collectors.toList());
     }
 
@@ -100,7 +115,7 @@ public class MessageService {
         if (message.getRecipient() != null && message.getRecipient().getId().equals(user.getId())) {
             message.setRead(true);
             Message updatedMessage = messageRepository.save(message);
-            return mapToMessageResponse(updatedMessage);
+            return mapToMessageResponse(updatedMessage, user);
         }
 
         throw new IllegalStateException("User is not authorized to mark this message as read");
@@ -116,6 +131,68 @@ public class MessageService {
         }
 
         messageRepository.delete(message);
+    }
+
+    @Transactional
+    public ReactionResponse addReaction(String postId, ReactionRequest request, User user) {
+        Message post = messageRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
+
+        postReactionRepository.findByPostIdAndUserId(postId, user.getId())
+                .ifPresent(existingReaction -> {
+                    throw new IllegalStateException("User already has a reaction to this post");
+                });
+
+        PostReaction reaction = PostReaction.builder()
+                .postId(postId)
+                .userId(user.getId())
+                .reactionType(request.getReactionType())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        postReactionRepository.save(reaction);
+
+        return getReactionResponse(postId, user);
+    }
+
+    @Transactional
+    public ReactionResponse removeReaction(String postId, String reactionType, User user) {
+        Message post = messageRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
+
+        PostReaction reaction = postReactionRepository.findByPostIdAndUserIdAndReactionType(postId, user.getId(), reactionType)
+                .orElseThrow(() -> new ResourceNotFoundException("Reaction not found"));
+
+        postReactionRepository.delete(reaction);
+
+        return getReactionResponse(postId, user);
+    }
+
+    public ReactionResponse getReactions(String postId, User user) {
+        Message post = messageRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post", "id", postId));
+
+        return getReactionResponse(postId, user);
+    }
+
+    private ReactionResponse getReactionResponse(String postId, User user) {
+        List<Object[]> reactionCounts = postReactionRepository.getReactionCountsByPost(postId);
+        Map<String, Integer> reactions = new HashMap<>();
+        
+        for (Object[] result : reactionCounts) {
+            String reactionType = (String) result[0];
+            Long count = (Long) result[1];
+            reactions.put(reactionType, count.intValue());
+        }
+
+        String userReaction = postReactionRepository.getUserReaction(postId, user.getId()).orElse(null);
+
+        return ReactionResponse.builder()
+                .postId(postId)
+                .reactions(reactions)
+                .userReaction(userReaction)
+                .updatedAt(LocalDateTime.now())
+                .build();
     }
 
     private void notifyRecipients(Message message) {
@@ -146,10 +223,21 @@ public class MessageService {
         }
     }
 
-    private MessageResponse mapToMessageResponse(Message message) {
+    private MessageResponse mapToMessageResponse(Message message, User currentUser) {
         List<MessageResponse> replies = message.getReplies().stream()
-                .map(this::mapToMessageResponse)
+                .map(reply -> mapToMessageResponse(reply, currentUser))
                 .collect(Collectors.toList());
+
+        List<Object[]> reactionCounts = postReactionRepository.getReactionCountsByPost(message.getId());
+        Map<String, Integer> reactions = new HashMap<>();
+        
+        for (Object[] result : reactionCounts) {
+            String reactionType = (String) result[0];
+            Long count = (Long) result[1];
+            reactions.put(reactionType, count.intValue());
+        }
+
+        String userReaction = postReactionRepository.getUserReaction(message.getId(), currentUser.getId()).orElse(null);
 
         return MessageResponse.builder()
                 .id(message.getId())
@@ -169,6 +257,8 @@ public class MessageService {
                 .createdAt(message.getCreatedAt())
                 .updatedAt(message.getUpdatedAt())
                 .isRead(message.isRead())
+                .reactions(reactions)
+                .userReaction(userReaction)
                 .build();
     }
 } 
