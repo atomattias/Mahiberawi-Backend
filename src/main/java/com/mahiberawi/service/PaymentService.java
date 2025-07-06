@@ -96,6 +96,20 @@ public class PaymentService {
                 .collect(Collectors.toList());
     }
 
+    public List<PaymentResponse> getPaymentsByUserId(String userId) {
+        List<Payment> payments = paymentRepository.findByPayer_Id(userId);
+        return payments.stream()
+                .map(this::mapToPaymentResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<PaymentResponse> getPaymentsByGroupId(String groupId) {
+        List<Payment> payments = paymentRepository.findByGroupId(groupId);
+        return payments.stream()
+                .map(this::mapToPaymentResponse)
+                .collect(Collectors.toList());
+    }
+
     public List<PaymentResponse> getPaymentsByEvent(String eventId) {
         List<Payment> payments = paymentRepository.findByEventId(eventId);
         return payments.stream()
@@ -138,7 +152,7 @@ public class PaymentService {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 12);
     }
 
-    private PaymentResponse mapToPaymentResponse(Payment payment) {
+    public PaymentResponse mapToPaymentResponse(Payment payment) {
         return PaymentResponse.builder()
                 .id(payment.getId())
                 .userId(payment.getPayer() != null ? payment.getPayer().getId() : null)

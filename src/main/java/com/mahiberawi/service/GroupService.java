@@ -40,6 +40,7 @@ public class GroupService {
     private final GroupMemberRepository groupMemberRepository;
     private final GroupInvitationRepository groupInvitationRepository;
     private final UserRepository userRepository;
+    private final UserService userService;
     private final NotificationService notificationService;
     private final EmailService emailService;
     private final EventRepository eventRepository;
@@ -309,9 +310,18 @@ public class GroupService {
 
     @Transactional(readOnly = true)
     public List<GroupResponse> getGroupsByUser(User user) {
+        // If user is SUPER_ADMIN, return all groups
+        if (userService.isSuperAdmin(user)) {
+            List<Group> allGroups = groupRepository.findAll();
+            return allGroups.stream()
+                    .map(group -> mapToResponse(group, user))
+                    .collect(Collectors.toList());
+        }
+        
+        // For regular users, return only groups they are members of
         List<Group> groups = groupRepository.findByMembersUser(user);
         return groups.stream()
-                .map(group -> mapToResponse(group, null))
+                .map(group -> mapToResponse(group, user))
                 .collect(Collectors.toList());
     }
 
@@ -363,8 +373,8 @@ public class GroupService {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
 
-        // Check if user is a member of the group
-        if (!groupMemberRepository.existsByGroupAndUser(group, currentUser)) {
+        // Check if user is a member of the group or is SUPER_ADMIN
+        if (!userService.isSuperAdmin(currentUser) && !groupMemberRepository.existsByGroupAndUser(group, currentUser)) {
             throw new UnauthorizedException("You are not a member of this group");
         }
 
@@ -819,6 +829,29 @@ public class GroupService {
         Group group = groupRepository.findById(request.getGroupId())
                 .orElseThrow(() -> new ResourceNotFoundException("Group", "id", request.getGroupId()));
 
+        // If user is SUPER_ADMIN, allow access
+        if (userService.isSuperAdmin(currentUser)) {
+            // Calculate expiration time
+            LocalDateTime expiresAt = LocalDateTime.now().plusHours(request.getExpirationHours());
+
+            // Handle email invitation
+            if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+                return createEmailInvitation(group, request.getEmail(), currentUser, expiresAt, request.getMessage());
+            }
+
+            // Handle SMS invitation
+            if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
+                return createSMSInvitation(group, request.getPhone(), currentUser, expiresAt, request.getMessage());
+            }
+
+            // Handle code generation
+            if (request.getGenerateCode() != null && request.getGenerateCode()) {
+                return createCodeInvitation(group, currentUser, expiresAt, request.getMessage());
+            }
+
+            throw new IllegalArgumentException("Invalid invitation request");
+        }
+
         GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
                 .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
 
@@ -956,6 +989,18 @@ public class GroupService {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group", "id", groupId));
 
+        // If user is SUPER_ADMIN, allow access
+        if (userService.isSuperAdmin(currentUser)) {
+            List<GroupInvitation> invitations = groupInvitationRepository.findByGroupId(groupId);
+            return invitations.stream()
+                    .map(invitation -> {
+                        User inviter = userRepository.findById(invitation.getInvitedBy())
+                                .orElse(null);
+                        return mapToInvitationResponse(invitation, group, inviter, invitation.getInvitationCode());
+                    })
+                    .collect(Collectors.toList());
+        }
+
         GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
                 .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
 
@@ -985,6 +1030,19 @@ public class GroupService {
         // Verify permissions
         Group group = groupRepository.findById(invitation.getGroupId())
                 .orElseThrow(() -> new ResourceNotFoundException("Group", "id", invitation.getGroupId()));
+
+        // If user is SUPER_ADMIN, allow access
+        if (userService.isSuperAdmin(currentUser)) {
+            // Only allow revoking pending invitations
+            if (invitation.getStatus() != InvitationStatus.PENDING) {
+                throw new IllegalStateException("Can only revoke pending invitations");
+            }
+
+            // Update status to revoked
+            invitation.setStatus(InvitationStatus.REJECTED);
+            groupInvitationRepository.save(invitation);
+            return;
+        }
 
         GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
                 .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
@@ -1087,8 +1145,8 @@ public class GroupService {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
 
-        // Check if user is a member of the group
-        if (!groupMemberRepository.existsByGroupAndUser(group, currentUser)) {
+        // Check if user is a member of the group or is SUPER_ADMIN
+        if (!userService.isSuperAdmin(currentUser) && !groupMemberRepository.existsByGroupAndUser(group, currentUser)) {
             throw new UnauthorizedException("You are not a member of this group");
         }
 
@@ -1104,6 +1162,23 @@ public class GroupService {
             com.mahiberawi.dto.event.EventRequest request, User currentUser) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // If user is SUPER_ADMIN, allow access
+        if (userService.isSuperAdmin(currentUser)) {
+            // Create event
+            Event event = new Event();
+            event.setTitle(request.getTitle());
+            event.setDescription(request.getDescription());
+            event.setStartTime(request.getStartTime());
+            event.setEndTime(request.getEndTime());
+            event.setLocation(request.getLocation());
+            event.setMaxParticipants(request.getMaxParticipants());
+            event.setGroup(group);
+            event.setCreator(currentUser);
+
+            Event savedEvent = eventRepository.save(event);
+            return mapToEventResponse(savedEvent);
+        }
 
         // Check if user is a member of the group
         GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
@@ -1139,8 +1214,8 @@ public class GroupService {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
 
-        // Check if user is a member of the group
-        if (!groupMemberRepository.existsByGroupAndUser(group, currentUser)) {
+        // Check if user is a member of the group or is SUPER_ADMIN
+        if (!userService.isSuperAdmin(currentUser) && !groupMemberRepository.existsByGroupAndUser(group, currentUser)) {
             throw new UnauthorizedException("You are not a member of this group");
         }
 
@@ -1156,6 +1231,19 @@ public class GroupService {
             com.mahiberawi.dto.message.MessageRequest request, User currentUser) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // If user is SUPER_ADMIN, allow access
+        if (userService.isSuperAdmin(currentUser)) {
+            // Create message
+            Message message = new Message();
+            message.setContent(request.getContent());
+            message.setType(MessageType.GROUP);
+            message.setSender(currentUser);
+            message.setGroup(group);
+
+            Message savedMessage = messageRepository.save(message);
+            return mapToMessageResponse(savedMessage);
+        }
 
         // Check if user is a member of the group
         GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
@@ -1195,8 +1283,8 @@ public class GroupService {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
 
-        // Check if user is a member of the group
-        if (!groupMemberRepository.existsByGroupAndUser(group, currentUser)) {
+        // Check if user is a member of the group or is SUPER_ADMIN
+        if (!userService.isSuperAdmin(currentUser) && !groupMemberRepository.existsByGroupAndUser(group, currentUser)) {
             throw new UnauthorizedException("You are not a member of this group");
         }
 
@@ -1210,6 +1298,22 @@ public class GroupService {
             com.mahiberawi.dto.payment.PaymentRequest request, User currentUser) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // If user is SUPER_ADMIN, allow access
+        if (userService.isSuperAdmin(currentUser)) {
+            // Create payment
+            Payment payment = new Payment();
+            payment.setAmount(request.getAmount());
+            payment.setMethod(request.getMethod());
+            payment.setStatus(PaymentStatus.PENDING);
+            payment.setPayer(currentUser);
+            payment.setGroup(group);
+            payment.setDescription(request.getDescription());
+            payment.setTransactionId(generateTransactionId());
+
+            Payment savedPayment = paymentRepository.save(payment);
+            return mapToPaymentResponse(savedPayment);
+        }
 
         // Check if user is a member of the group
         GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
@@ -1240,6 +1344,37 @@ public class GroupService {
     public GroupMemberResponse addGroupMember(String groupId, GroupMemberRequest request, User currentUser) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // If user is SUPER_ADMIN, allow access
+        if (userService.isSuperAdmin(currentUser)) {
+            // Find user to add
+            User userToAdd = userRepository.findByEmail(request.getEmail())
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
+
+            // Check if user is already a member
+            if (groupMemberRepository.existsByGroupAndUser(group, userToAdd)) {
+                throw new IllegalStateException("User is already a member of this group");
+            }
+
+            // Create member record
+            GroupMember member = GroupMember.builder()
+                    .groupId(group.getId())
+                    .userId(userToAdd.getId())
+                    .group(group)
+                    .user(userToAdd)
+                    .role(request.getRole())
+                    .status(GroupMemberStatus.ACTIVE)
+                    .joinedAt(LocalDateTime.now())
+                    .build();
+
+            member = groupMemberRepository.save(member);
+
+            // Update group member count
+            group.setMemberCount(group.getMemberCount() + 1);
+            groupRepository.save(group);
+
+            return mapToMemberResponse(member);
+        }
 
         // Check if current user has permission to add members
         GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
@@ -1292,6 +1427,28 @@ public class GroupService {
             throw new ResourceNotFoundException("Member does not belong to this group");
         }
 
+        // If user is SUPER_ADMIN, allow access
+        if (userService.isSuperAdmin(currentUser)) {
+            // Prevent removing the last admin
+            if (memberToRemove.getRole() == GroupMemberRole.ADMIN) {
+                long adminCount = group.getMembers().stream()
+                        .filter(m -> m.getRole() == GroupMemberRole.ADMIN)
+                        .count();
+                if (adminCount <= 1) {
+                    throw new IllegalStateException("Cannot remove the last admin");
+                }
+            }
+
+            // Remove member
+            groupMemberRepository.delete(memberToRemove);
+
+            // Update group member count
+            group.setMemberCount(Math.max(0, group.getMemberCount() - 1));
+            groupRepository.save(group);
+
+            return mapToMemberResponse(memberToRemove);
+        }
+
         // Check permissions
         if (memberToRemove.getUser() == null || !memberToRemove.getUser().getId().equals(currentUser.getId())) {
             // If not removing self, must be admin
@@ -1328,6 +1485,24 @@ public class GroupService {
             UpdateRoleRequest request, User currentUser) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // If user is SUPER_ADMIN, allow access
+        if (userService.isSuperAdmin(currentUser)) {
+            // Find member to update
+            GroupMember memberToUpdate = groupMemberRepository.findById(memberId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Member not found with id: " + memberId));
+
+            // Check if member belongs to the group
+            if (memberToUpdate.getGroup() == null || !memberToUpdate.getGroup().getId().equals(groupId)) {
+                throw new ResourceNotFoundException("Member does not belong to this group");
+            }
+
+            // Update role
+            memberToUpdate.setRole(request.getRole());
+            groupMemberRepository.save(memberToUpdate);
+
+            return mapToMemberResponse(memberToUpdate);
+        }
 
         // Check if current user has permission to update roles
         GroupMember currentMember = groupMemberRepository.findByGroupAndUser(group, currentUser)
@@ -1549,6 +1724,20 @@ public class GroupService {
     private GroupMember getGroupMemberWithPermission(String groupId, User currentUser, String action) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // If user is SUPER_ADMIN, create a virtual member with ADMIN role
+        if (userService.isSuperAdmin(currentUser)) {
+            return GroupMember.builder()
+                    .id("super-admin-" + groupId)
+                    .groupId(groupId)
+                    .userId(currentUser.getId())
+                    .group(group)
+                    .user(currentUser)
+                    .role(GroupMemberRole.ADMIN)
+                    .status(GroupMemberStatus.ACTIVE)
+                    .joinedAt(LocalDateTime.now())
+                    .build();
+        }
 
         GroupMember member = groupMemberRepository.findByGroupAndUser(group, currentUser)
                 .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));

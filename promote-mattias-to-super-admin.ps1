@@ -1,9 +1,9 @@
-# Promote mattias.gabrie@wilhelmsen.com to Super Admin
-Write-Host "Promoting mattias.gabrie@wilhelmsen.com to Super Admin" -ForegroundColor Green
+# Promote mattiasgebrie@gmail.com to Super Admin
+Write-Host "Promoting mattiasgebrie@gmail.com to Super Admin" -ForegroundColor Green
 Write-Host "===============================================" -ForegroundColor Green
 
 $baseUrl = "http://localhost:8080/api"
-$email = "mattias.gabrie@wilhelmsen.com"
+$email = "mattiasgebrie@gmail.com"
 
 Write-Host "`nTarget user: $email" -ForegroundColor Yellow
 Write-Host "Backend URL: $baseUrl" -ForegroundColor Cyan
