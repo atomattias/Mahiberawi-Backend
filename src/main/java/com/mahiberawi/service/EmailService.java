@@ -64,7 +64,7 @@ public class EmailService {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(email);
-            message.setSubject("Verify Your Email - Mahiberawi");
+            message.setSubject("Verify Your Email - Dewel");
             message.setText(buildVerificationEmailContent(userName, verificationCode));
             
             log.debug("Attempting to send email from: {} to: {}", fromEmail, email);
@@ -106,7 +106,7 @@ public class EmailService {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(email);
-            message.setSubject("Reset Your Password - Mahiberawi");
+            message.setSubject("Reset Your Password - Dewel");
             message.setText(buildPasswordResetEmailContent(userName, resetCode));
             
             mailSender.send(message);
@@ -199,7 +199,7 @@ public class EmailService {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(email);
-            message.setSubject("Test Email - Mahiberawi");
+            message.setSubject("Test Email - Dewel");
             message.setText("This is a test email to verify SMTP configuration is working properly.\n\nTimestamp: " + LocalDateTime.now());
             
             log.debug("Attempting to send test email from: {} to: {}", fromEmail, email);
@@ -238,7 +238,7 @@ public class EmailService {
             "This code will expire in %d minutes.\n\n" +
             "If you didn't create an account with us, please ignore this email.\n\n" +
             "Best regards,\n" +
-            "The Mahiberawi Team",
+            "The Dewel Team",
             userName, code, verificationCodeExpiryMinutes
         );
     }
@@ -254,7 +254,7 @@ public class EmailService {
             "This code will expire in %d minutes.\n\n" +
             "If you didn't request a password reset, please ignore this email.\n\n" +
             "Best regards,\n" +
-            "The Mahiberawi Team",
+            "The Dewel Team",
             userName, code, verificationCodeExpiryMinutes
         );
     }
@@ -277,7 +277,7 @@ public class EmailService {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(email);
-            message.setSubject("You're Invited to Join a Group - Mahiberawi");
+            message.setSubject("You're Invited to Join a Group - Dewel");
             
             String emailContent;
             if (groupCode != null && !groupCode.trim().isEmpty()) {
@@ -318,7 +318,7 @@ public class EmailService {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(email);
-            message.setSubject("Verify Your Group Invitation - Mahiberawi");
+            message.setSubject("Verify Your Group Invitation - Dewel");
             message.setText(buildGroupInvitationVerificationEmailContent(userName, invitationToken));
             
             log.debug("Attempting to send group invitation verification email from: {} to: {}", fromEmail, email);
@@ -336,12 +336,12 @@ public class EmailService {
     private String buildGroupInvitationEmailContent(String inviterName, String groupCode) {
         return String.format(
             "Hello!\n\n" +
-            "%s has invited you to join a group on Mahiberawi.\n\n" +
-            "To join the group, please use the following code in the Mahiberawi app:\n" +
+            "%s has invited you to join a group on Dewel.\n\n" +
+            "To join the group, please use the following code in the Dewel app:\n" +
             "Group Code: %s\n\n" +
-            "If you don't have the Mahiberawi app, you can download it from your app store.\n\n" +
+            "If you don't have the Dewel app, you can download it from your app store.\n\n" +
             "Best regards,\n" +
-            "The Mahiberawi Team",
+            "The Dewel Team",
             inviterName, groupCode
         );
     }
@@ -349,10 +349,10 @@ public class EmailService {
     private String buildGeneralGroupInvitationEmailContent(String inviterName) {
         return String.format(
             "Hello!\n\n" +
-            "%s has invited you to join Mahiberawi, a platform for managing groups and events.\n\n" +
-            "To get started, please download the Mahiberawi app from your app store and create an account.\n\n" +
+            "%s has invited you to join Dewel, a platform for managing groups and events.\n\n" +
+            "To get started, please download the Dewel app from your app store and create an account.\n\n" +
             "Best regards,\n" +
-            "The Mahiberawi Team",
+            "The Dewel Team",
             inviterName
         );
     }
@@ -360,12 +360,12 @@ public class EmailService {
     private String buildGroupInvitationVerificationEmailContent(String userName, String invitationToken) {
         return String.format(
             "Hello %s!\n\n" +
-            "You requested to join a group on Mahiberawi. To complete the process, please click the link below:\n\n" +
-            "Verification Link: https://mahiberawi.com/verify-invitation?token=%s\n\n" +
+            "You requested to join a group on Dewel. To complete the process, please click the link below:\n\n" +
+            "Verification Link: https://dewel.com/verify-invitation?token=%s\n\n" +
             "This link will expire in 24 hours.\n\n" +
             "If you didn't request this invitation, please ignore this email.\n\n" +
             "Best regards,\n" +
-            "The Mahiberawi Team",
+            "The Dewel Team",
             userName, invitationToken
         );
     }
@@ -389,7 +389,7 @@ public class EmailService {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(email);
-            message.setSubject("You're Invited to Join " + groupName + " - Mahiberawi");
+            message.setSubject("You're Invited to Join " + groupName + " - Dewel");
             message.setText(buildEnhancedGroupInvitationEmailContent(inviterName, groupName, invitationCode, expiresAt, customMessage));
             
             log.debug("Attempting to send enhanced group invitation email from: {} to: {}", fromEmail, email);
@@ -449,19 +449,19 @@ public class EmailService {
                                                           String invitationCode, LocalDateTime expiresAt, String customMessage) {
         StringBuilder content = new StringBuilder();
         content.append("Hello!\n\n");
-        content.append(inviterName).append(" has invited you to join the group \"").append(groupName).append("\" on Mahiberawi.\n\n");
+        content.append(inviterName).append(" has invited you to join the group \"").append(groupName).append("\" on Dewel.\n\n");
         
         if (customMessage != null && !customMessage.trim().isEmpty()) {
             content.append("Message from ").append(inviterName).append(": ").append(customMessage).append("\n\n");
         }
         
-        content.append("To join the group, please use the following invitation code in the Mahiberawi app:\n");
+        content.append("To join the group, please use the following invitation code in the Dewel app:\n");
         content.append("Invitation Code: ").append(invitationCode).append("\n\n");
         
         content.append("This invitation will expire on: ").append(expiresAt.toString()).append("\n\n");
         
-        content.append("If you don't have the Mahiberawi app, you can download it from your app store.\n\n");
-        content.append("Best regards,\nThe Mahiberawi Team");
+        content.append("If you don't have the Dewel app, you can download it from your app store.\n\n");
+        content.append("Best regards,\nThe Dewel Team");
         
         return content.toString();
     }
@@ -469,7 +469,7 @@ public class EmailService {
     private String buildSMSInvitationContent(String inviterName, String groupName, 
                                            String invitationCode, LocalDateTime expiresAt, String customMessage) {
         StringBuilder content = new StringBuilder();
-        content.append(inviterName).append(" invited you to join \"").append(groupName).append("\" on Mahiberawi. ");
+        content.append(inviterName).append(" invited you to join \"").append(groupName).append("\" on Dewel. ");
         content.append("Code: ").append(invitationCode).append(". ");
         content.append("Expires: ").append(expiresAt.toString()).append(". ");
         

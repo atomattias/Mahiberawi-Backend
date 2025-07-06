@@ -2,10 +2,13 @@ package com.mahiberawi.controller;
 
 import com.mahiberawi.dto.payment.PaymentRequest;
 import com.mahiberawi.dto.payment.PaymentResponse;
+import com.mahiberawi.dto.payment.GroupPaymentRequest;
 import com.mahiberawi.entity.User;
 import com.mahiberawi.entity.Payment;
 import com.mahiberawi.service.PaymentService;
 import com.mahiberawi.service.TeleBirrService;
+import com.mahiberawi.service.VippsService;
+import com.mahiberawi.service.GroupPaymentService;
 import java.util.Map;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -32,6 +35,8 @@ import java.util.Map;
 public class PaymentController {
     private final PaymentService paymentService;
     private final TeleBirrService teleBirrService;
+    private final VippsService vippsService;
+    private final GroupPaymentService groupPaymentService;
 
     @Operation(
         summary = "Create a new payment",
@@ -262,6 +267,203 @@ public class PaymentController {
         return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
                 .success(true)
                 .message("Payment history retrieved successfully")
+                .data(payments)
+                .build());
+    }
+
+    // ========== VIPPS PAYMENT ENDPOINTS ==========
+
+    @Operation(
+        summary = "Initiate Vipps payment",
+        description = "Initiates a payment using Vipps payment gateway"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Payment initiated successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.payment.VippsPaymentResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid payment details"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "500", description = "Payment gateway error")
+    })
+    @PostMapping("/vipps/initiate")
+    public ResponseEntity<com.mahiberawi.dto.payment.VippsPaymentResponse> initiateVippsPayment(
+            @Parameter(description = "Payment details", required = true)
+            @Valid @RequestBody PaymentRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        Payment payment = paymentService.createPaymentEntity(request, user);
+        com.mahiberawi.dto.payment.VippsPaymentResponse response = vippsService.initiatePayment(payment);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+        summary = "Check Vipps payment status",
+        description = "Checks the status of a Vipps payment transaction"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Payment status retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "404", description = "Transaction not found")
+    })
+    @GetMapping("/vipps/status/{transactionId}")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> checkVippsPaymentStatus(
+            @Parameter(description = "Transaction ID", required = true)
+            @PathVariable String transactionId) {
+        boolean isSuccessful = vippsService.verifyPayment(transactionId);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Payment status checked successfully")
+                .data(Map.of("transactionId", transactionId, "status", isSuccessful ? "SUCCESS" : "FAILED"))
+                .build());
+    }
+
+    @Operation(
+        summary = "Get Vipps payment history",
+        description = "Retrieves payment history for a specific user"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Payment history retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "404", description = "No payments found")
+    })
+    @GetMapping("/vipps/payment/history/{userId}")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getVippsPaymentHistory(
+            @Parameter(description = "User ID", required = true)
+            @PathVariable String userId) {
+        List<PaymentResponse> payments = paymentService.getPaymentsByUserId(userId).stream()
+                .filter(payment -> payment.getMethod() == com.mahiberawi.entity.PaymentMethod.VIPPS)
+                .collect(java.util.stream.Collectors.toList());
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Payment history retrieved successfully")
+                .data(payments)
+                .build());
+    }
+
+    // ========== GROUP PAYMENT ENDPOINTS ==========
+
+    @Operation(
+        summary = "Create group payment request",
+        description = "Group administrators can create payment requests for group members"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Group payment request created successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid payment details"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to create group payments"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @PostMapping("/group/create")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> createGroupPaymentRequest(
+            @Parameter(description = "Group payment request details", required = true)
+            @Valid @RequestBody GroupPaymentRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<PaymentResponse> createdPayments = groupPaymentService.createGroupPaymentRequest(request, user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Group payment request created successfully")
+                .data(Map.of(
+                    "groupId", request.getGroupId(),
+                    "amount", request.getAmount(),
+                    "method", request.getMethod(),
+                    "description", request.getDescription(),
+                    "createdBy", user.getId(),
+                    "createdPayments", createdPayments.size(),
+                    "payments", createdPayments
+                ))
+                .build());
+    }
+
+    @Operation(
+        summary = "Get group payment requests",
+        description = "Retrieves all payment requests for a specific group"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Group payment requests retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @GetMapping("/group/{groupId}/requests")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getGroupPaymentRequests(
+            @Parameter(description = "Group ID", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<PaymentResponse> payments = groupPaymentService.getGroupPaymentRequests(groupId, user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Group payment requests retrieved successfully")
+                .data(payments)
+                .build());
+    }
+
+    @Operation(
+        summary = "Get user's pending payments",
+        description = "Retrieves all pending payments for the current user"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Pending payments retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @GetMapping("/pending")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getPendingPayments(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<PaymentResponse> payments = groupPaymentService.getUserPendingPayments(user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Pending payments retrieved successfully")
+                .data(payments)
+                .build());
+    }
+
+    @Operation(
+        summary = "Get group payment statistics",
+        description = "Retrieves payment statistics for a specific group. Only admins and moderators can view statistics."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Payment statistics retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to view statistics"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @GetMapping("/group/{groupId}/statistics")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getGroupPaymentStatistics(
+            @Parameter(description = "Group ID", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<PaymentResponse> payments = groupPaymentService.getGroupPaymentStatistics(groupId, user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Group payment statistics retrieved successfully")
                 .data(payments)
                 .build());
     }

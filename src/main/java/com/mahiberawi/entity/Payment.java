@@ -54,6 +54,23 @@ public class Payment {
     @Column(name = "transaction_id", unique = true)
     private String transactionId;
 
+    // Equb-specific fields
+    @Column(name = "equb_round")
+    private Integer equbRound;
+
+    @Column(name = "is_equb_payment")
+    private Boolean isEqubPayment = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "equb_round_id")
+    private EqubRound equbRoundEntity;
+
+    @Column(name = "penalty_amount", precision = 10, scale = 2)
+    private BigDecimal penaltyAmount;
+
+    @Column(name = "is_late_payment")
+    private Boolean isLatePayment = false;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -4,10 +4,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum GroupType {
+    EQUB,
     EDIR,
-    CHURCH,
-    SAVING_CLUB,
-    FOOTBALL_TEAM,
+    SPIRITUAL,
+    EDUCATIONAL,
+    SPORT,
     OTHER;
 
     @JsonValue
@@ -29,22 +30,23 @@ public enum GroupType {
         } catch (IllegalArgumentException e) {
             // Handle common variations
             switch (normalized) {
-                case "FOOTBALL_TEAM":
-                case "FOOTBALLTEAM":
-                case "SPORTS_TEAM":
-                case "SPORTSTEAM":
-                    return FOOTBALL_TEAM;
-                case "SAVING_CLUB":
-                case "SAVINGCLUB":
-                case "SAVINGS_CLUB":
-                case "SAVINGSCLUB":
-                    return SAVING_CLUB;
+                case "EQUB":
+                case "EQUIB":
+                    return EQUB;
                 case "EDIR":
                 case "IDIR":
                     return EDIR;
-                case "CHURCH":
-                case "CHURCH_GROUP":
-                    return CHURCH;
+                case "SPIRITUAL":
+                case "SPIRITUAL_GROUP":
+                    return SPIRITUAL;
+                case "EDUCATIONAL":
+                case "EDUCATION":
+                case "EDUCATION_GROUP":
+                    return EDUCATIONAL;
+                case "SPORT":
+                case "SPORTS":
+                case "SPORTS_GROUP":
+                    return SPORT;
                 default:
                     return OTHER;
             }

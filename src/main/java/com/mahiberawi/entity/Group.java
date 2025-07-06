@@ -102,6 +102,44 @@ public class Group {
     @Builder.Default
     private Set<Payment> payments = new HashSet<>();
 
+    // Equb-specific fields
+    @Column(name = "is_equb_group")
+    @Builder.Default
+    private Boolean isEqubGroup = false;
+
+    @Column(name = "equb_amount", precision = 10, scale = 2)
+    private BigDecimal equbAmount;
+
+    @Column(name = "equb_selection_method")
+    @Enumerated(EnumType.STRING)
+    private com.mahiberawi.entity.enums.EqubSelectionMethod equbSelectionMethod;
+
+    @Column(name = "current_equb_round")
+    @Builder.Default
+    private Integer currentEqubRound = 0;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "current_winner_id")
+    private User currentWinner;
+
+    @Column(name = "last_equb_draw")
+    private LocalDateTime lastEqubDraw;
+
+    @Column(name = "equb_grace_period_days")
+    @Builder.Default
+    private Integer equbGracePeriodDays = 7;
+
+    @Column(name = "equb_penalty_amount", precision = 10, scale = 2)
+    private BigDecimal equbPenaltyAmount;
+
+    @Column(name = "equb_payment_deadline_days")
+    @Builder.Default
+    private Integer equbPaymentDeadlineDays = 15;
+
+    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<EqubRound> equbRounds = new HashSet<>();
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
