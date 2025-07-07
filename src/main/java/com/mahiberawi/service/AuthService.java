@@ -239,7 +239,7 @@ public class AuthService {
         // 2. Updating the user's phone verification status
         // 3. Returning success/failure response
         
-        var user = userRepository.findByPhone(request.getPhone())
+        var user = userRepository.findByPhone(request.getPhoneNumber())
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
         // For now, we'll just mark as verified (in real app, verify the code)
