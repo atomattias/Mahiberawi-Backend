@@ -32,7 +32,7 @@ public class PhoneAuthController {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
 
-    @PostMapping("/register-phone")
+    @PostMapping("/phone/register")
     public ResponseEntity<ApiResponse> registerByPhone(@Valid @RequestBody PhoneRegisterRequest request) {
         // Check if phone already exists
         if (userRepository.findByPhone(request.getPhoneNumber()).isPresent()) {
@@ -82,7 +82,7 @@ public class PhoneAuthController {
         }
     }
 
-    @PostMapping("/verify-phone")
+    @PostMapping("/phone/verify")
     public ResponseEntity<ApiResponse> verifyPhone(@Valid @RequestBody PhoneVerificationRequest request) {
         // Verify the code
         boolean verified = phoneService.verifyPhoneCode(request.getPhoneNumber(), request.getCode());
@@ -105,7 +105,7 @@ public class PhoneAuthController {
                 .build());
     }
 
-    @PostMapping("/login-phone")
+    @PostMapping("/phone/login")
     public ResponseEntity<AuthResponse> loginByPhone(@Valid @RequestBody PhoneLoginRequest request) {
         // Find user by phone number
         var userOpt = userRepository.findByPhone(request.getPhoneNumber());
@@ -145,7 +145,7 @@ public class PhoneAuthController {
                 .build());
     }
 
-    @PostMapping("/forgot-password-phone")
+    @PostMapping("/phone/forgot-password")
     public ResponseEntity<ApiResponse> forgotPasswordByPhone(@RequestParam String phoneNumber) {
         log.info("Forgot password request for phone: {}", phoneNumber);
         
@@ -172,7 +172,7 @@ public class PhoneAuthController {
                 .build());
     }
 
-    @PostMapping("/test-sms")
+    @PostMapping("/phone/test-sms")
     public ResponseEntity<ApiResponse> testSms(@RequestParam String phoneNumber) {
         log.info("Testing SMS sending to: {}", phoneNumber);
         
