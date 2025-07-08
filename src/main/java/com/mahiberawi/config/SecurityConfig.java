@@ -44,7 +44,8 @@ public class SecurityConfig {
             .requestMatchers("/", "/health", "/api/health").permitAll()
             .requestMatchers("/auth/register", "/auth/login", "/auth/verify-email", "/auth/verify-phone", 
                            "/auth/forgot-password", "/auth/reset-password", "/auth/resend-verification", 
-                           "/auth/test-email", "/auth/delete-user").permitAll()
+                           "/auth/test-email", "/auth/delete-user", "/auth/phone/register", "/auth/phone/verify", 
+                           "/auth/phone/login", "/auth/phone/forgot-password", "/auth/phone/test-sms").permitAll()
             .requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html").permitAll()
             .requestMatchers("/v3/api-docs/**").permitAll()
             .anyRequest().authenticated()
