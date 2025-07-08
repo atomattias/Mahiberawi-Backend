@@ -10,6 +10,7 @@ import com.mahiberawi.service.AuthService;
 import com.mahiberawi.entity.User;
 import com.mahiberawi.entity.UserRole;
 import com.mahiberawi.entity.UserStatus;
+import com.mahiberawi.entity.UserIntention;
 import com.mahiberawi.repository.UserRepository;
 import com.mahiberawi.security.JwtService;
 import jakarta.validation.Valid;
@@ -69,6 +70,7 @@ public class PhoneAuthController {
                 .email(email)
                 .password(passwordEncoder.encode(request.getPassword())) // Encode password properly
                 .role(UserRole.MEMBER)
+                .intention(UserIntention.UNDECIDED) // Set default intention
                 .status(UserStatus.ACTIVE)
                 .isPhoneVerified(false)
                 .isEmailVerified(false)
