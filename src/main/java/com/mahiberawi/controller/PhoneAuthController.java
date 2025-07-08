@@ -55,12 +55,19 @@ public class PhoneAuthController {
                     .build());
         }
         // Create user (phone only, email optional)
+        // Generate placeholder email if not provided
+        String email = request.getEmail();
+        if (email == null || email.isBlank()) {
+            // Generate a unique placeholder email for phone-only users
+            email = "phone+" + request.getPhoneNumber().replaceAll("[^0-9]", "") + "@mahiberawi.com";
+        }
+        
         User user = User.builder()
                 .phone(request.getPhoneNumber())
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
-                .email(request.getEmail())
-                .password(request.getPassword()) // Password should be encoded in real implementation
+                .email(email)
+                .password(passwordEncoder.encode(request.getPassword())) // Encode password properly
                 .role(UserRole.MEMBER)
                 .status(UserStatus.ACTIVE)
                 .isPhoneVerified(false)
