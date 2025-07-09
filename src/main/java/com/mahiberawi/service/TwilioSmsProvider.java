@@ -35,6 +35,9 @@ public class TwilioSmsProvider implements SmsProvider {
     
     @Override
     public boolean sendSms(String phoneNumber, String message) {
+        log.info("Twilio SMS provider - enabled: {}, accountSid: {}, fromNumber: {}", 
+                enabled, accountSid != null ? "SET" : "NOT SET", fromNumber != null ? "SET" : "NOT SET");
+        
         if (!enabled) {
             log.warn("Twilio SMS provider is not enabled");
             return false;

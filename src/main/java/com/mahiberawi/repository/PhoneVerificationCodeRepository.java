@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -37,4 +38,9 @@ public interface PhoneVerificationCodeRepository extends JpaRepository<PhoneVeri
      * Find the most recent unused code for a phone number
      */
     Optional<PhoneVerificationCode> findFirstByPhoneNumberAndUsedFalseOrderByCreatedAtDesc(String phoneNumber);
+    
+    /**
+     * Find all verification codes for a phone number
+     */
+    List<PhoneVerificationCode> findByPhoneNumber(String phoneNumber);
 } 

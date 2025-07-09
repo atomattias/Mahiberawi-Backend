@@ -199,4 +199,24 @@ public class PhoneAuthController {
                     .build());
         }
     }
+
+    @GetMapping("/phone/debug-codes")
+    public ResponseEntity<ApiResponse> debugCodes(@RequestParam String phoneNumber) {
+        log.info("Debugging verification codes for: {}", phoneNumber);
+        
+        try {
+            var codes = phoneService.getVerificationCodesForPhone(phoneNumber);
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(true)
+                    .message("Found " + codes.size() + " verification codes for " + phoneNumber)
+                    .data(codes)
+                    .build());
+        } catch (Exception e) {
+            log.error("Error debugging codes for: {}", phoneNumber, e);
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(false)
+                    .message("Error: " + e.getMessage())
+                    .build());
+        }
+    }
 } 

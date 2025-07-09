@@ -11,6 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Random;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -217,6 +221,28 @@ public class PhoneService {
         } catch (Exception e) {
             log.error("Failed to send test SMS to: {}", phoneNumber, e);
             return false;
+        }
+    }
+
+    /**
+     * Get verification codes for a phone number (for debugging)
+     */
+    public List<Map<String, Object>> getVerificationCodesForPhone(String phoneNumber) {
+        try {
+            var codes = phoneVerificationCodeRepository.findByPhoneNumber(phoneNumber);
+            return codes.stream()
+                    .map(code -> {
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("code", code.getCode());
+                        map.put("expiresAt", code.getExpiresAt());
+                        map.put("used", code.isUsed());
+                        map.put("createdAt", code.getCreatedAt());
+                        return map;
+                    })
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error getting verification codes for phone: {}", phoneNumber, e);
+            return List.of();
         }
     }
 
