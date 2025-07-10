@@ -23,6 +23,8 @@ public class SmsProviderFactory {
      * @return The appropriate SMS provider, or null if no provider supports the number
      */
     public SmsProvider getSmsProvider(String phoneNumber) {
+        log.info("Original phone number received: '{}'", phoneNumber);
+        
         if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
             log.warn("Phone number is null or empty");
             return null;
@@ -30,6 +32,7 @@ public class SmsProviderFactory {
         
         // Normalize phone number to international format
         String normalizedPhone = normalizePhoneNumber(phoneNumber);
+        log.info("Normalized phone number: '{}'", normalizedPhone);
         
         for (SmsProvider provider : smsProviders) {
             if (provider.supportsPhoneNumber(normalizedPhone)) {
