@@ -199,6 +199,103 @@ public class AdminController {
         }
     }
     
+    // ========== SECURE SUPER ADMIN PROMOTION ENDPOINT ==========
+    
+    @PostMapping("/secure-promote-super-admin/{email}")
+    public ResponseEntity<ApiResponse> securePromoteToSuperAdmin(
+            @PathVariable String email,
+            @RequestParam String promotionKey) {
+        
+        // Check if promotion is enabled via environment variable
+        String allowedPromotionKey = System.getenv("SUPER_ADMIN_PROMOTION_KEY");
+        if (allowedPromotionKey == null || allowedPromotionKey.isEmpty()) {
+            log.warn("Super admin promotion attempted but not enabled");
+            return ResponseEntity.status(403).body(ApiResponse.builder()
+                    .success(false)
+                    .message("Super admin promotion is not enabled")
+                    .build());
+        }
+        
+        // Verify the promotion key
+        if (!allowedPromotionKey.equals(promotionKey)) {
+            log.warn("Invalid promotion key provided for user: {}", email);
+            return ResponseEntity.status(403).body(ApiResponse.builder()
+                    .success(false)
+                    .message("Invalid promotion key")
+                    .build());
+        }
+        
+        try {
+            User user = userService.getUserByEmail(email);
+            if (user == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.builder()
+                        .success(false)
+                        .message("User not found")
+                        .build());
+            }
+            
+            user.setRole(UserRole.SUPER_ADMIN);
+            userService.updateUserRole(user.getId(), UserRole.SUPER_ADMIN);
+            
+            log.info("User {} promoted to SUPER_ADMIN via secure endpoint", email);
+            
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(true)
+                    .message("User promoted to SUPER_ADMIN successfully")
+                    .data("User: " + email + " is now SUPER_ADMIN")
+                    .build());
+                    
+        } catch (Exception e) {
+            log.error("Error promoting user to SUPER_ADMIN: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .success(false)
+                    .message("Failed to promote user: " + e.getMessage())
+                    .build());
+        }
+    }
+    
+    // ========== NORMAL ADMIN PROMOTION ENDPOINT ==========
+    
+    @PostMapping("/promote-to-admin/{email}")
+    public ResponseEntity<ApiResponse> promoteToAdmin(
+            @PathVariable String email,
+            @AuthenticationPrincipal User currentUser) {
+        
+        // Check if current user is super admin
+        if (!userService.isSuperAdmin(currentUser)) {
+            throw new UnauthorizedException("Only super admins can promote users to admin");
+        }
+        
+        try {
+            User user = userService.getUserByEmail(email);
+            if (user == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.builder()
+                        .success(false)
+                        .message("User not found")
+                        .build());
+            }
+            
+            // Only allow promotion to ADMIN role (not SUPER_ADMIN)
+            user.setRole(UserRole.ADMIN);
+            userService.updateUserRole(user.getId(), UserRole.ADMIN);
+            
+            log.info("User {} promoted to ADMIN by super admin {}", email, currentUser.getEmail());
+            
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(true)
+                    .message("User promoted to ADMIN successfully")
+                    .data("User: " + email + " is now ADMIN")
+                    .build());
+                    
+        } catch (Exception e) {
+            log.error("Error promoting user to ADMIN: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .success(false)
+                    .message("Failed to promote user: " + e.getMessage())
+                    .build());
+        }
+    }
+    
     // ========== TEMPORARY PROMOTION ENDPOINTS ==========
     
     @PostMapping("/promote/{email}")
