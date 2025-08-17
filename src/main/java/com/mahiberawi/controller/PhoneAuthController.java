@@ -5,6 +5,8 @@ import com.mahiberawi.dto.auth.PhoneRegisterRequest;
 import com.mahiberawi.dto.auth.PhoneVerificationRequest;
 import com.mahiberawi.dto.auth.PhoneLoginRequest;
 import com.mahiberawi.dto.auth.AuthResponse;
+import com.mahiberawi.dto.auth.RegistrationStatusResponse;
+import com.mahiberawi.dto.auth.ResendVerificationRequest;
 import com.mahiberawi.service.PhoneService;
 import com.mahiberawi.service.AuthService;
 import com.mahiberawi.entity.User;
@@ -20,8 +22,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @RestController
 @RequestMapping("/auth")
@@ -33,15 +38,54 @@ public class PhoneAuthController {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
 
+    // Registration expiration time in hours
+    private static final int REGISTRATION_EXPIRY_HOURS = 24;
+
     @PostMapping("/phone/register")
     public ResponseEntity<ApiResponse> registerByPhone(@Valid @RequestBody PhoneRegisterRequest request) {
+        log.info("Phone registration attempt for: {}", request.getPhoneNumber());
+        
         // Check if phone already exists
-        if (userRepository.findByPhone(request.getPhoneNumber()).isPresent()) {
-            return ResponseEntity.badRequest().body(ApiResponse.builder()
-                    .success(false)
-                    .message("Phone number already registered")
-                    .build());
+        var existingUserOpt = userRepository.findByPhone(request.getPhoneNumber());
+        if (existingUserOpt.isPresent()) {
+            User existingUser = existingUserOpt.get();
+            
+            if (existingUser.isPhoneVerified()) {
+                // User is already verified - provide helpful message
+                return ResponseEntity.badRequest().body(ApiResponse.builder()
+                        .success(false)
+                        .message("Phone number already registered and verified. Please try logging in instead.")
+                        .data(Map.of(
+                            "status", "VERIFIED",
+                            "suggestion", "LOGIN_INSTEAD"
+                        ))
+                        .build());
+            } else {
+                // User exists but not verified - check if registration has expired
+                LocalDateTime expiryTime = existingUser.getCreatedAt().plusHours(REGISTRATION_EXPIRY_HOURS);
+                boolean isExpired = LocalDateTime.now().isAfter(expiryTime);
+                
+                if (isExpired) {
+                    // Registration expired - delete old user and allow new registration
+                    log.info("Deleting expired unverified user: {}", request.getPhoneNumber());
+                    userRepository.delete(existingUser);
+                } else {
+                    // Registration still valid - provide helpful message with resend option
+                    long timeRemaining = ChronoUnit.SECONDS.between(LocalDateTime.now(), expiryTime);
+                    return ResponseEntity.badRequest().body(ApiResponse.builder()
+                            .success(false)
+                            .message("Phone number already registered but not verified. You can resend the verification SMS.")
+                            .data(Map.of(
+                                "status", "PENDING_VERIFICATION",
+                                "suggestion", "RESEND_VERIFICATION",
+                                "timeRemaining", timeRemaining,
+                                "canResend", true
+                            ))
+                            .build());
+                }
+            }
         }
+        
         // Optionally check for email uniqueness if provided
         if (request.getEmail() != null && !request.getEmail().isBlank() && userRepository.findByEmail(request.getEmail()).isPresent()) {
             return ResponseEntity.badRequest().body(ApiResponse.builder()
@@ -49,12 +93,14 @@ public class PhoneAuthController {
                     .message("Email already registered")
                     .build());
         }
+        
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             return ResponseEntity.badRequest().body(ApiResponse.builder()
                     .success(false)
                     .message("Passwords do not match")
                     .build());
         }
+        
         // Create user (phone only, email optional)
         // Generate placeholder email if not provided
         String email = request.getEmail();
@@ -76,23 +122,171 @@ public class PhoneAuthController {
                 .isEmailVerified(false)
                 .build();
         userRepository.save(user);
+        
         // Send verification SMS
         boolean smsSent = phoneService.sendVerificationSms(request.getPhoneNumber(), user.getFullName());
         if (smsSent) {
+            log.info("Phone registration successful for: {}", request.getPhoneNumber());
             return ResponseEntity.ok(ApiResponse.builder()
                     .success(true)
                     .message("Registration successful. Please verify your phone number.")
+                    .data(Map.of(
+                        "phoneNumber", request.getPhoneNumber(),
+                        "expiresAt", user.getCreatedAt().plusHours(REGISTRATION_EXPIRY_HOURS)
+                    ))
                     .build());
         } else {
+            log.warn("Phone registration successful but SMS failed for: {}", request.getPhoneNumber());
             return ResponseEntity.ok(ApiResponse.builder()
                     .success(true)
-                    .message("Registration successful, but failed to send verification SMS.")
+                    .message("Registration successful, but failed to send verification SMS. You can request a new verification code.")
+                    .data(Map.of(
+                        "phoneNumber", request.getPhoneNumber(),
+                        "canResend", true
+                    ))
+                    .build());
+        }
+    }
+
+    @GetMapping("/phone/registration-status/{phoneNumber}")
+    public ResponseEntity<RegistrationStatusResponse> getRegistrationStatus(@PathVariable String phoneNumber) {
+        log.info("Registration status check for: {}", phoneNumber);
+        
+        // Privacy-conscious approach: Don't reveal detailed status to unauthenticated users
+        var userOpt = userRepository.findByPhone(phoneNumber);
+        
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.ok(RegistrationStatusResponse.builder()
+                    .success(false)
+                    .status("NOT_FOUND")
+                    .phoneNumber(phoneNumber)
+                    .message("Phone number not found in our system")
+                    .build());
+        }
+        
+        // For unauthenticated requests, only reveal that the number is registered
+        // Don't reveal verification status or other details
+        return ResponseEntity.ok(RegistrationStatusResponse.builder()
+                .success(true)
+                .status("REGISTERED") // Generic status
+                .phoneNumber(phoneNumber)
+                .message("Phone number is registered in our system")
+                .build());
+    }
+
+    // Alternative: Authenticated status check (more secure)
+    @GetMapping("/phone/my-registration-status")
+    public ResponseEntity<RegistrationStatusResponse> getMyRegistrationStatus(
+            @AuthenticationPrincipal User currentUser) {
+        
+        if (currentUser == null || currentUser.getPhone() == null) {
+            return ResponseEntity.status(401).body(RegistrationStatusResponse.builder()
+                    .success(false)
+                    .message("Authentication required")
+                    .build());
+        }
+        
+        log.info("Authenticated registration status check for: {}", currentUser.getPhone());
+        
+        if (currentUser.isPhoneVerified()) {
+            return ResponseEntity.ok(RegistrationStatusResponse.builder()
+                    .success(true)
+                    .status("VERIFIED")
+                    .phoneNumber(currentUser.getPhone())
+                    .createdAt(currentUser.getCreatedAt())
+                    .message("Your phone number is verified and active")
+                    .build());
+        }
+        
+        // Check if registration has expired
+        LocalDateTime expiryTime = currentUser.getCreatedAt().plusHours(REGISTRATION_EXPIRY_HOURS);
+        boolean isExpired = LocalDateTime.now().isAfter(expiryTime);
+        
+        if (isExpired) {
+            return ResponseEntity.ok(RegistrationStatusResponse.builder()
+                    .success(false)
+                    .status("EXPIRED")
+                    .phoneNumber(currentUser.getPhone())
+                    .message("Your registration has expired. Please register again.")
+                    .build());
+        }
+        
+        long timeRemaining = ChronoUnit.SECONDS.between(LocalDateTime.now(), expiryTime);
+        
+        return ResponseEntity.ok(RegistrationStatusResponse.builder()
+                .success(true)
+                .status("PENDING_VERIFICATION")
+                .phoneNumber(currentUser.getPhone())
+                .createdAt(currentUser.getCreatedAt())
+                .expiresAt(expiryTime)
+                .timeRemaining(timeRemaining)
+                .canResend(true)
+                .message("Your registration is pending verification")
+                .build());
+    }
+
+    @PostMapping("/phone/resend-verification")
+    public ResponseEntity<ApiResponse> resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
+        log.info("Resend verification request for: {}", request.getPhoneNumber());
+        
+        var userOpt = userRepository.findByPhone(request.getPhoneNumber());
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .success(false)
+                    .message("Phone number not found in our system")
+                    .build());
+        }
+        
+        User user = userOpt.get();
+        
+        if (user.isPhoneVerified()) {
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .success(false)
+                    .message("Phone number is already verified")
+                    .build());
+        }
+        
+        // Check if registration has expired
+        LocalDateTime expiryTime = user.getCreatedAt().plusHours(REGISTRATION_EXPIRY_HOURS);
+        boolean isExpired = LocalDateTime.now().isAfter(expiryTime);
+        
+        if (isExpired) {
+            // Delete expired user
+            log.info("Deleting expired unverified user: {}", request.getPhoneNumber());
+            userRepository.delete(user);
+            
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .success(false)
+                    .message("Registration has expired. Please register again.")
+                    .build());
+        }
+        
+        // Resend verification SMS
+        boolean smsSent = phoneService.sendVerificationSms(request.getPhoneNumber(), user.getFullName());
+        
+        if (smsSent) {
+            log.info("Verification SMS resent successfully to: {}", request.getPhoneNumber());
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(true)
+                    .message("Verification SMS sent successfully")
+                    .data(Map.of(
+                        "phoneNumber", request.getPhoneNumber(),
+                        "expiresAt", expiryTime
+                    ))
+                    .build());
+        } else {
+            log.error("Failed to resend verification SMS to: {}", request.getPhoneNumber());
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(false)
+                    .message("Failed to send verification SMS. Please try again later.")
                     .build());
         }
     }
 
     @PostMapping("/phone/verify")
     public ResponseEntity<ApiResponse> verifyPhone(@Valid @RequestBody PhoneVerificationRequest request) {
+        log.info("Phone verification attempt for: {}", request.getPhoneNumber());
+        
         // Verify the code
         boolean verified = phoneService.verifyPhoneCode(request.getPhoneNumber(), request.getCode());
         if (!verified) {
@@ -101,13 +295,16 @@ public class PhoneAuthController {
                     .message("Invalid or expired verification code")
                     .build());
         }
+        
         // Mark user as phone verified
         var userOpt = userRepository.findByPhone(request.getPhoneNumber());
         if (userOpt.isPresent()) {
             var user = userOpt.get();
             user.setPhoneVerified(true);
             userRepository.save(user);
+            log.info("Phone verified successfully for: {}", request.getPhoneNumber());
         }
+        
         return ResponseEntity.ok(ApiResponse.builder()
                 .success(true)
                 .message("Phone verified successfully")
@@ -201,22 +398,17 @@ public class PhoneAuthController {
     }
 
     @GetMapping("/phone/debug-codes")
-    public ResponseEntity<ApiResponse> debugCodes(@RequestParam String phoneNumber) {
-        log.info("Debugging verification codes for: {}", phoneNumber);
-        
-        try {
-            var codes = phoneService.getVerificationCodesForPhone(phoneNumber);
-            return ResponseEntity.ok(ApiResponse.builder()
-                    .success(true)
-                    .message("Found " + codes.size() + " verification codes for " + phoneNumber)
-                    .data(codes)
-                    .build());
-        } catch (Exception e) {
-            log.error("Error debugging codes for: {}", phoneNumber, e);
-            return ResponseEntity.ok(ApiResponse.builder()
-                    .success(false)
-                    .message("Error: " + e.getMessage())
-                    .build());
+    public ResponseEntity<ApiResponse> getDebugCodes(@RequestParam String phoneNumber) {
+        // This endpoint should only be available in development
+        if (!"development".equals(System.getProperty("spring.profiles.active"))) {
+            return ResponseEntity.notFound().build();
         }
+        
+        var codes = phoneService.getDebugCodes(phoneNumber);
+        return ResponseEntity.ok(ApiResponse.builder()
+                .success(true)
+                .message("Debug codes for " + phoneNumber)
+                .data(codes)
+                .build());
     }
 } 

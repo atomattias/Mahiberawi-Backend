@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum GroupType {
-    EQUB,
+    ROSA, // Changed from EQUB to ROSA (Rotating Savings Association)
     EDIR,
     SPIRITUAL,
     EDUCATIONAL,
@@ -13,7 +13,23 @@ public enum GroupType {
 
     @JsonValue
     public String getValue() {
-        return this.name().toLowerCase().replace('_', ' ');
+        // Return user-friendly display names
+        switch (this) {
+            case ROSA:
+                return "Rotating Savings Association";
+            case EDIR:
+                return "Edir";
+            case SPIRITUAL:
+                return "Spiritual";
+            case EDUCATIONAL:
+                return "Educational";
+            case SPORT:
+                return "Sport";
+            case OTHER:
+                return "Other";
+            default:
+                return this.name().toLowerCase().replace('_', ' ');
+        }
     }
 
     @JsonCreator
@@ -30,9 +46,11 @@ public enum GroupType {
         } catch (IllegalArgumentException e) {
             // Handle common variations
             switch (normalized) {
-                case "EQUB":
+                case "ROSA":
+                case "ROTATING_SAVINGS_ASSOCIATION":
+                case "EQUB": // Keep backward compatibility
                 case "EQUIB":
-                    return EQUB;
+                    return ROSA;
                 case "EDIR":
                 case "IDIR":
                     return EDIR;

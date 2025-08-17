@@ -6,6 +6,7 @@ import com.mahiberawi.entity.UserStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,4 +28,7 @@ public interface UserRepository extends JpaRepository<User, String> {
     List<User> findByIsEmailVerifiedTrue();
     List<User> findByIsEmailVerifiedFalse();
     List<User> findByStatus(UserStatus status);
+    
+    // Cleanup methods
+    List<User> findByIsPhoneVerifiedFalseAndCreatedAtBefore(LocalDateTime dateTime);
 } 
