@@ -2,9 +2,9 @@
 
 ## 🔍 Your Twilio Configuration
 
-**Account SID:** AC36cf9432dc8dec2759289239d0bd28aa  
-**Phone Number:** +14632101597  
-**Verify Service SID:** VAba7792460b1f5bb5ed51a4afe690f023  
+**Account SID:** [Get from Twilio Console]  
+**Phone Number:** [Get from Twilio Console]  
+**Verify Service SID:** [Get from Twilio Console]  
 **Auth Token:** [Get from Twilio Console]
 
 ## 📋 Steps to Fix SMS
@@ -22,10 +22,10 @@
 Go to your Railway dashboard and add these variables to your development environment:
 
 ```
-TWILIO_ACCOUNT_SID_DEV=AC36cf9432dc8dec2759289239d0bd28aa
-TWILIO_AUTH_TOKEN_DEV=[YOUR_AUTH_TOKEN_HERE]
-TWILIO_FROM_NUMBER_DEV=+14632101597
-TWILIO_SERVICE_SID_DEV=VAba7792460b1f5bb5ed51a4afe690f023
+TWILIO_ACCOUNT_SID_DEV=[YOUR_ACCOUNT_SID]
+TWILIO_AUTH_TOKEN_DEV=[YOUR_AUTH_TOKEN]
+TWILIO_FROM_NUMBER_DEV=[YOUR_PHONE_NUMBER]
+TWILIO_SERVICE_SID_DEV=[YOUR_SERVICE_SID]
 ```
 
 ### 4. Test After Setup
