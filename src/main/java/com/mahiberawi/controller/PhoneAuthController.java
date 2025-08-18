@@ -227,6 +227,21 @@ public class PhoneAuthController {
 
     @PostMapping("/phone/resend-verification")
     public ResponseEntity<ApiResponse> resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
+        return resendVerificationInternal(request);
+    }
+
+    @PostMapping("/send-phone-verification")
+    public ResponseEntity<ApiResponse> sendPhoneVerification(@RequestBody Map<String, String> request) {
+        log.info("Send phone verification request for: {}", request.get("phone"));
+        
+        ResendVerificationRequest resendRequest = ResendVerificationRequest.builder()
+                .phoneNumber(request.get("phone"))
+                .build();
+        
+        return resendVerificationInternal(resendRequest);
+    }
+
+    private ResponseEntity<ApiResponse> resendVerificationInternal(@Valid ResendVerificationRequest request) {
         log.info("Resend verification request for: {}", request.getPhoneNumber());
         
         var userOpt = userRepository.findByPhone(request.getPhoneNumber());

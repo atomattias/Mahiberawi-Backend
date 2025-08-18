@@ -46,7 +46,8 @@ public class SecurityConfig {
                            "/auth/forgot-password", "/auth/reset-password", "/auth/resend-verification", 
                            "/auth/test-email", "/auth/delete-user", "/auth/phone/register", "/auth/phone/verify", 
                            "/auth/phone/login", "/auth/phone/forgot-password", "/auth/phone/test-sms", 
-                           "/auth/phone/debug-codes", "/auth/phone/resend-verification", "/auth/phone/registration-status/**").permitAll()
+                           "/auth/phone/debug-codes", "/auth/phone/resend-verification", "/auth/phone/registration-status/**",
+                           "/auth/send-phone-verification").permitAll()
             .requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html").permitAll()
             .requestMatchers("/v3/api-docs/**").permitAll()
             .anyRequest().authenticated()
