@@ -9,6 +9,7 @@ import com.mahiberawi.repository.GroupMemberRepository;
 import com.mahiberawi.repository.GroupRepository;
 import com.mahiberawi.exception.ResourceNotFoundException;
 import com.mahiberawi.exception.UnauthorizedException;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,9 @@ public class UserService {
     private final UserRepository userRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final GroupRepository groupRepository;
+    
+    @Value("${SUPER_ADMIN_PROMOTION_KEY:}")
+    private String superAdminPromotionKey;
 
     public User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
@@ -127,5 +131,29 @@ public class UserService {
         return users.stream()
                 .map(this::convertToUserResponse)
                 .collect(Collectors.toList());
+    }
+    
+    // ========== SECURE PROMOTION METHODS ==========
+    
+    public boolean securePromoteToSuperAdmin(String email, String promotionKey) {
+        // Check if promotion is enabled
+        if (superAdminPromotionKey == null || superAdminPromotionKey.isEmpty()) {
+            throw new UnauthorizedException("Super admin promotion is not enabled");
+        }
+        
+        // Validate promotion key
+        if (!superAdminPromotionKey.equals(promotionKey)) {
+            throw new UnauthorizedException("Invalid promotion key");
+        }
+        
+        // Find and promote user
+        try {
+            User user = getUserByEmail(email);
+            user.setRole(UserRole.SUPER_ADMIN);
+            userRepository.save(user);
+            return true;
+        } catch (ResourceNotFoundException e) {
+            throw new UnauthorizedException("User not found: " + email);
+        }
     }
 } 
