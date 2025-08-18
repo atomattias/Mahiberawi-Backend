@@ -234,9 +234,8 @@ public class PhoneAuthController {
     public ResponseEntity<ApiResponse> sendPhoneVerification(@RequestBody Map<String, String> request) {
         log.info("Send phone verification request for: {}", request.get("phone"));
         
-        ResendVerificationRequest resendRequest = ResendVerificationRequest.builder()
-                .phoneNumber(request.get("phone"))
-                .build();
+        ResendVerificationRequest resendRequest = new ResendVerificationRequest();
+        resendRequest.setPhoneNumber(request.get("phone"));
         
         return resendVerificationInternal(resendRequest);
     }
