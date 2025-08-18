@@ -404,7 +404,7 @@ public class PhoneAuthController {
             return ResponseEntity.notFound().build();
         }
         
-        var codes = phoneService.getDebugCodes(phoneNumber);
+        var codes = phoneService.getVerificationCodesForPhone(phoneNumber);
         return ResponseEntity.ok(ApiResponse.builder()
                 .success(true)
                 .message("Debug codes for " + phoneNumber)
