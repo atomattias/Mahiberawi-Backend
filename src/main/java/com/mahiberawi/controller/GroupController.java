@@ -665,6 +665,34 @@ public class GroupController {
         return ResponseEntity.ok(group);
     }
 
+    @Operation(
+        summary = "Join group with invitation code and role",
+        description = "Joins a group using a valid invitation code with specified role. " +
+                     "The invitation code must be valid and not expired. " +
+                     "Role assignment is subject to security checks."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Successfully joined the group",
+            content = @Content(schema = @Schema(implementation = GroupResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "Invalid or expired invitation code"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to assign requested role"),
+        @ApiResponse(responseCode = "404", description = "Invitation not found"),
+        @ApiResponse(responseCode = "409", description = "Already a member of the group")
+    })
+    @PostMapping("/join-with-code-and-role")
+    public ResponseEntity<GroupResponse> joinWithInvitationCodeAndRole(
+            @Parameter(description = "Join request with code and role", required = true)
+            @Valid @RequestBody JoinGroupRequest request,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        GroupResponse group = groupService.joinWithInvitationCodeAndRole(request, user);
+        return ResponseEntity.ok(group);
+    }
+
     // ========== GROUP-SPECIFIC ACTIVITIES ENDPOINTS ==========
 
     @Operation(

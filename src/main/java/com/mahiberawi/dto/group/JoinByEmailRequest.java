@@ -1,5 +1,6 @@
 package com.mahiberawi.dto.group;
 
+import com.mahiberawi.entity.enums.GroupMemberRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -17,4 +18,6 @@ public class JoinByEmailRequest {
     private String email;
     
     private String groupCode; // Optional group code for direct joining
+    
+    private GroupMemberRole role = GroupMemberRole.MEMBER; // Default role, can be overridden
 } 

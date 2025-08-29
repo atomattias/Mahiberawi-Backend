@@ -282,6 +282,36 @@ public class GroupService {
     }
 
     @Transactional
+    public GroupResponse joinWithInvitationCodeAndRole(JoinGroupRequest request, User user) {
+        Group group = groupRepository.findByCode(request.getCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with code: " + request.getCode()));
+
+        if (groupMemberRepository.existsByGroupAndUser(group, user)) {
+            throw new IllegalStateException("User is already a member of this group");
+        }
+
+        // Validate and determine the role to assign
+        GroupMemberRole roleToAssign = validateAndDetermineRole(request.getRole(), user, group);
+
+        GroupMember member = GroupMember.builder()
+                .groupId(group.getId()) // Set the groupId string field
+                .userId(user.getId()) // Set the userId string field
+                .group(group) // Set the group object
+                .user(user) // Set the user object
+                .role(roleToAssign)
+                .status(GroupMemberStatus.ACTIVE)
+                .joinedAt(LocalDateTime.now())
+                .build();
+        groupMemberRepository.save(member);
+
+        // Update group member count
+        group.setMemberCount(group.getMemberCount() + 1);
+        group = groupRepository.save(group);
+
+        return mapToResponse(group, user);
+    }
+
+    @Transactional
     public GroupResponse joinGroupWithLink(String link, User user) {
         Group group = groupRepository.findByInviteLink(link)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with link: " + link));
@@ -575,13 +605,16 @@ public class GroupService {
             throw new RuntimeException("Invalid group code");
         }
 
-        // Add user as member
+        // Validate and determine the role to assign
+        GroupMemberRole roleToAssign = validateAndDetermineRole(request.getRole(), user, group);
+
+        // Add user as member with the determined role
         GroupMember member = GroupMember.builder()
                 .groupId(group.getId()) // Set the groupId string field
                 .userId(user.getId()) // Set the userId string field
                 .group(group) // Set the group object
                 .user(user) // Set the user object
-                .role(GroupMemberRole.MEMBER)
+                .role(roleToAssign)
                 .status(GroupMemberStatus.ACTIVE)
                 .joinedAt(LocalDateTime.now())
                 .build();
@@ -596,7 +629,7 @@ public class GroupService {
 
         return ApiResponse.builder()
                 .success(true)
-                .message("Successfully joined the group")
+                .message("Successfully joined the group with role: " + roleToAssign)
                 .build();
     }
 
@@ -640,13 +673,16 @@ public class GroupService {
                                 .build();
                     }
                     
+                    // Validate and determine the role to assign
+                    GroupMemberRole roleToAssign = validateAndDetermineRole(request.getRole(), currentUser, group);
+                    
                     // Join the group directly
                     GroupMember member = GroupMember.builder()
                             .groupId(group.getId()) // Set the groupId string field
                             .userId(currentUser.getId()) // Set the userId string field
                             .group(group) // Set the group object
                             .user(currentUser) // Set the user object
-                            .role(GroupMemberRole.MEMBER)
+                            .role(roleToAssign)
                             .status(GroupMemberStatus.ACTIVE)
                             .joinedAt(LocalDateTime.now())
                             .build();
@@ -732,13 +768,16 @@ public class GroupService {
                 // TODO: Implement token validation for private groups
             }
             
+            // Validate and determine the role to assign
+            GroupMemberRole roleToAssign = validateAndDetermineRole(request.getRole(), user, group);
+            
             // Join the group
             GroupMember member = GroupMember.builder()
                     .groupId(group.getId()) // Set the groupId string field
                     .userId(user.getId()) // Set the userId string field
                     .group(group) // Set the group object
                     .user(user) // Set the user object
-                    .role(GroupMemberRole.MEMBER)
+                    .role(roleToAssign)
                     .status(GroupMemberStatus.ACTIVE)
                     .joinedAt(LocalDateTime.now())
                     .build();
@@ -750,7 +789,7 @@ public class GroupService {
             
             return JoinResponse.builder()
                     .success(true)
-                    .message("Successfully joined the group")
+                    .message("Successfully joined the group with role: " + roleToAssign)
                     .requiresVerification(false)
                     .group(mapToResponse(group, null))
                     .build();
@@ -2027,5 +2066,74 @@ public class GroupService {
                 .limit(limit)
                 .map(group -> mapToResponse(group, group.getCreator()))
                 .collect(Collectors.toList());
+    }
+
+    // ========== ROLE VALIDATION METHODS ==========
+
+    /**
+     * Validates and determines the appropriate role to assign when joining a group
+     * Implements security checks to prevent privilege escalation
+     */
+    private GroupMemberRole validateAndDetermineRole(GroupMemberRole requestedRole, User user, Group group) {
+        // If no role is requested, default to MEMBER
+        if (requestedRole == null) {
+            return GroupMemberRole.MEMBER;
+        }
+
+        // Security check: Only SUPER_ADMIN users can assign ADMIN role
+        if (requestedRole == GroupMemberRole.ADMIN) {
+            if (!userService.isSuperAdmin(user)) {
+                throw new UnauthorizedException("Only super admins can assign ADMIN role");
+            }
+        }
+
+        // Security check: Only SUPER_ADMIN or existing group ADMINS can assign MODERATOR role
+        if (requestedRole == GroupMemberRole.MODERATOR) {
+            boolean canAssignModerator = userService.isSuperAdmin(user);
+            
+            if (!canAssignModerator) {
+                // Check if user is already an admin of this group
+                Optional<GroupMember> existingMember = groupMemberRepository.findByGroupAndUser(group, user);
+                canAssignModerator = existingMember.isPresent() && existingMember.get().getRole() == GroupMemberRole.ADMIN;
+            }
+            
+            if (!canAssignModerator) {
+                throw new UnauthorizedException("Only super admins or group admins can assign MODERATOR role");
+            }
+        }
+
+        // For MEMBER role, anyone can assign it (default behavior)
+        if (requestedRole == GroupMemberRole.MEMBER) {
+            return GroupMemberRole.MEMBER;
+        }
+
+        // If all checks pass, return the requested role
+        return requestedRole;
+    }
+
+    /**
+     * Validates if a user can assign a specific role to another user
+     */
+    private boolean canAssignRole(User assigner, Group group, GroupMemberRole roleToAssign) {
+        // SUPER_ADMIN can assign any role
+        if (userService.isSuperAdmin(assigner)) {
+            return true;
+        }
+
+        // Check if assigner is a member of the group
+        Optional<GroupMember> assignerMember = groupMemberRepository.findByGroupAndUser(group, assigner);
+        if (!assignerMember.isPresent()) {
+            return false;
+        }
+
+        GroupMemberRole assignerRole = assignerMember.get().getRole();
+
+        // Only ADMINS can assign roles
+        if (assignerRole != GroupMemberRole.ADMIN) {
+            return false;
+        }
+
+        // ADMINS can assign MEMBER and MODERATOR roles, but not ADMIN roles
+        return roleToAssign != GroupMemberRole.ADMIN;
     }
 } 
