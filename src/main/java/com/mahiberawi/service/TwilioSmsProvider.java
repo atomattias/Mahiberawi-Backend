@@ -134,4 +134,25 @@ public class TwilioSmsProvider implements SmsProvider {
         // Twilio supports international numbers, but we'll use it for non-Ethiopian numbers
         return phoneNumber != null && !phoneNumber.startsWith("+251");
     }
+    
+    // Getter methods for debugging
+    public boolean isEnabled() {
+        return enabled;
+    }
+    
+    public String getAccountSid() {
+        return accountSid;
+    }
+    
+    public String getAuthToken() {
+        return authToken;
+    }
+    
+    public String getFromNumber() {
+        return fromNumber;
+    }
+    
+    public String getServiceSid() {
+        return serviceSid;
+    }
 } 

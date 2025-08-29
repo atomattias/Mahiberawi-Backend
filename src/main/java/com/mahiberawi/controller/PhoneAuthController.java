@@ -425,4 +425,23 @@ public class PhoneAuthController {
                 .data(codes)
                 .build());
     }
+
+    @GetMapping("/phone/debug-twilio-config")
+    public ResponseEntity<ApiResponse> getTwilioConfig() {
+        // This endpoint should only be available in development
+        if (!"development".equals(System.getProperty("spring.profiles.active"))) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        Map<String, Object> config = new HashMap<>();
+        config.put("twilioEnabled", phoneService.isTwilioEnabled());
+        config.put("twilioConfig", phoneService.getTwilioConfig());
+        config.put("activeProfile", System.getProperty("spring.profiles.active"));
+        
+        return ResponseEntity.ok(ApiResponse.builder()
+                .success(true)
+                .message("Twilio configuration debug info")
+                .data(config)
+                .build());
+    }
 } 

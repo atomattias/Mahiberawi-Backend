@@ -72,4 +72,11 @@ public class SmsProviderFactory {
         
         return normalized;
     }
+    
+    /**
+     * Get all SMS providers (for debugging)
+     */
+    public List<SmsProvider> getSmsProviders() {
+        return smsProviders;
+    }
 } 

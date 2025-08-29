@@ -2,6 +2,7 @@ package com.mahiberawi.service;
 
 import com.mahiberawi.entity.PhoneVerificationCode;
 import com.mahiberawi.repository.PhoneVerificationCodeRepository;
+import com.mahiberawi.service.TwilioSmsProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -244,6 +245,54 @@ public class PhoneService {
             log.error("Error getting verification codes for phone: {}", phoneNumber, e);
             return List.of();
         }
+    }
+
+    /**
+     * Check if Twilio is enabled (for debugging)
+     */
+    public boolean isTwilioEnabled() {
+        try {
+            SmsProvider twilioProvider = smsProviderFactory.getSmsProviders().stream()
+                    .filter(provider -> "Twilio".equals(provider.getProviderName()))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (twilioProvider instanceof TwilioSmsProvider) {
+                return ((TwilioSmsProvider) twilioProvider).isEnabled();
+            }
+            return false;
+        } catch (Exception e) {
+            log.error("Error checking Twilio enabled status", e);
+            return false;
+        }
+    }
+
+    /**
+     * Get Twilio configuration (for debugging)
+     */
+    public Map<String, Object> getTwilioConfig() {
+        Map<String, Object> config = new HashMap<>();
+        try {
+            SmsProvider twilioProvider = smsProviderFactory.getSmsProviders().stream()
+                    .filter(provider -> "Twilio".equals(provider.getProviderName()))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (twilioProvider instanceof TwilioSmsProvider) {
+                TwilioSmsProvider twilio = (TwilioSmsProvider) twilioProvider;
+                config.put("enabled", twilio.isEnabled());
+                config.put("accountSidSet", twilio.getAccountSid() != null && !twilio.getAccountSid().isEmpty());
+                config.put("authTokenSet", twilio.getAuthToken() != null && !twilio.getAuthToken().isEmpty());
+                config.put("fromNumberSet", twilio.getFromNumber() != null && !twilio.getFromNumber().isEmpty());
+                config.put("serviceSidSet", twilio.getServiceSid() != null && !twilio.getServiceSid().isEmpty());
+            } else {
+                config.put("error", "Twilio provider not found");
+            }
+        } catch (Exception e) {
+            log.error("Error getting Twilio config", e);
+            config.put("error", e.getMessage());
+        }
+        return config;
     }
 
     /**
