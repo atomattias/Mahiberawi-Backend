@@ -8,7 +8,7 @@ echo "This script promotes any user to SUPER_ADMIN role in DEVELOPMENT"
 echo "======================================="
 
 # Development environment URL (update this with your dev Railway URL)
-BASE_URL="https://mahiberawi-backend-dev.up.railway.app/api"
+BASE_URL="https://web-development-a36e.up.railway.app/api"
 
 # Get target user email
 echo
