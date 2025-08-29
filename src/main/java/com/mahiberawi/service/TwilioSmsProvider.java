@@ -37,6 +37,11 @@ public class TwilioSmsProvider implements SmsProvider {
     public boolean sendSms(String phoneNumber, String message) {
         log.info("Twilio SMS provider - enabled: {}, accountSid: {}, fromNumber: {}", 
                 enabled, accountSid != null ? "SET" : "NOT SET", fromNumber != null ? "SET" : "NOT SET");
+        log.info("Twilio config details - accountSid length: {}, authToken length: {}, fromNumber: '{}', serviceSid length: {}", 
+                accountSid != null ? accountSid.length() : 0, 
+                authToken != null ? authToken.length() : 0, 
+                fromNumber != null ? fromNumber : "NULL", 
+                serviceSid != null ? serviceSid.length() : 0);
         log.info("Attempting to send SMS to: '{}' with message length: {}", phoneNumber, message.length());
         
         if (!enabled) {
@@ -46,6 +51,21 @@ public class TwilioSmsProvider implements SmsProvider {
         
         if (!supportsPhoneNumber(phoneNumber)) {
             log.warn("Twilio does not support phone number: {}", phoneNumber);
+            return false;
+        }
+        
+        if (accountSid == null || accountSid.isEmpty()) {
+            log.error("Twilio account SID is not set");
+            return false;
+        }
+        
+        if (authToken == null || authToken.isEmpty()) {
+            log.error("Twilio auth token is not set");
+            return false;
+        }
+        
+        if (fromNumber == null || fromNumber.isEmpty()) {
+            log.error("Twilio from number is not set");
             return false;
         }
         
