@@ -444,4 +444,20 @@ public class PhoneAuthController {
                 .data(config)
                 .build());
     }
+
+    @GetMapping("/phone/debug-env-vars")
+    public ResponseEntity<ApiResponse> getEnvVars() {
+        Map<String, Object> envVars = new HashMap<>();
+        envVars.put("TWILIO_ACCOUNT_SID_DEV_SET", System.getenv("TWILIO_ACCOUNT_SID_DEV") != null);
+        envVars.put("TWILIO_AUTH_TOKEN_DEV_SET", System.getenv("TWILIO_AUTH_TOKEN_DEV") != null);
+        envVars.put("TWILIO_FROM_NUMBER_DEV_SET", System.getenv("TWILIO_FROM_NUMBER_DEV") != null);
+        envVars.put("TWILIO_SERVICE_SID_DEV_SET", System.getenv("TWILIO_SERVICE_SID_DEV") != null);
+        envVars.put("activeProfile", System.getProperty("spring.profiles.active"));
+        
+        return ResponseEntity.ok(ApiResponse.builder()
+                .success(true)
+                .message("Environment variables debug info")
+                .data(envVars)
+                .build());
+    }
 } 
