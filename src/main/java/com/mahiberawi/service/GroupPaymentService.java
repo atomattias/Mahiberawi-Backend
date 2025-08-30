@@ -22,6 +22,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.HashMap;
+import java.math.BigDecimal;
 
 @Slf4j
 @Service
@@ -123,6 +126,78 @@ public class GroupPaymentService {
                 .collect(Collectors.toList());
     }
 
+    // ========== NEW PAYMENT STATUS FILTERING METHODS ==========
+
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getUserPaymentsFiltered(User user, List<PaymentStatus> statuses) {
+        List<Payment> payments;
+        
+        if (statuses == null || statuses.isEmpty()) {
+            // If no status filter, return all user payments
+            payments = paymentRepository.findByPayer(user);
+        } else {
+            // Filter by specified statuses
+            payments = paymentRepository.findByPayer(user).stream()
+                    .filter(payment -> statuses.contains(payment.getStatus()))
+                    .collect(Collectors.toList());
+        }
+        
+        return payments.stream()
+                .map(paymentService::mapToPaymentResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getUserPaymentSummary(User user) {
+        List<Payment> userPayments = paymentRepository.findByPayer(user);
+        
+        long pendingCount = userPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PENDING)
+                .count();
+        
+        long completedCount = userPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PAID)
+                .count();
+        
+        long failedCount = userPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.FAILED)
+                .count();
+        
+        long cancelledCount = userPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.CANCELLED)
+                .count();
+        
+        long refundedCount = userPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.REFUNDED)
+                .count();
+        
+        BigDecimal totalPaid = userPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PAID)
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        BigDecimal totalPending = userPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PENDING)
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("totalPayments", userPayments.size());
+        summary.put("pendingCount", pendingCount);
+        summary.put("completedCount", completedCount);
+        summary.put("failedCount", failedCount);
+        summary.put("cancelledCount", cancelledCount);
+        summary.put("refundedCount", refundedCount);
+        summary.put("totalPaid", totalPaid);
+        summary.put("totalPending", totalPending);
+        summary.put("unpaidCount", pendingCount + failedCount); // Unpaid = pending + failed
+        
+        log.info("User {} payment summary - Total: {}, Pending: {}, Completed: {}, Failed: {}", 
+            user.getId(), userPayments.size(), pendingCount, completedCount, failedCount);
+        
+        return summary;
+    }
+
     @Transactional(readOnly = true)
     public List<PaymentResponse> getGroupPaymentStatistics(String groupId, User currentUser) {
         Group group = groupRepository.findById(groupId)
@@ -144,7 +219,7 @@ public class GroupPaymentService {
                 .count();
         
         long completedCount = groupPayments.stream()
-                .filter(p -> p.getStatus() == PaymentStatus.COMPLETED)
+                .filter(p -> p.getStatus() == PaymentStatus.PAID)
                 .count();
         
         long cancelledCount = groupPayments.stream()
@@ -157,6 +232,104 @@ public class GroupPaymentService {
         return groupPayments.stream()
                 .map(paymentService::mapToPaymentResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getGroupPaymentsFiltered(String groupId, User currentUser, List<PaymentStatus> statuses) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Check if user is an admin or moderator
+        GroupMember member = groupMemberRepository.findByGroupAndUser(group, currentUser)
+                .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
+
+        if (member.getRole() != GroupMemberRole.ADMIN && member.getRole() != GroupMemberRole.MODERATOR) {
+            throw new UnauthorizedException("Only admins and moderators can view group payment details");
+        }
+
+        List<Payment> groupPayments = paymentRepository.findByGroupId(groupId);
+        
+        if (statuses != null && !statuses.isEmpty()) {
+            groupPayments = groupPayments.stream()
+                    .filter(payment -> statuses.contains(payment.getStatus()))
+                    .collect(Collectors.toList());
+        }
+        
+        return groupPayments.stream()
+                .map(paymentService::mapToPaymentResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getGroupPaymentSummary(String groupId, User currentUser) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        // Check if user is an admin or moderator
+        GroupMember member = groupMemberRepository.findByGroupAndUser(group, currentUser)
+                .orElseThrow(() -> new UnauthorizedException("You are not a member of this group"));
+
+        if (member.getRole() != GroupMemberRole.ADMIN && member.getRole() != GroupMemberRole.MODERATOR) {
+            throw new UnauthorizedException("Only admins and moderators can view group payment summary");
+        }
+
+        List<Payment> groupPayments = paymentRepository.findByGroupId(groupId);
+        
+        // Group payments by status
+        long pendingCount = groupPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PENDING)
+                .count();
+        
+        long completedCount = groupPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PAID)
+                .count();
+        
+        long failedCount = groupPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.FAILED)
+                .count();
+        
+        long cancelledCount = groupPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.CANCELLED)
+                .count();
+        
+        long refundedCount = groupPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.REFUNDED)
+                .count();
+        
+        BigDecimal totalPaid = groupPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PAID)
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        BigDecimal totalPending = groupPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PENDING)
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        BigDecimal totalFailed = groupPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.FAILED)
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("groupId", groupId);
+        summary.put("groupName", group.getName());
+        summary.put("totalPayments", groupPayments.size());
+        summary.put("pendingCount", pendingCount);
+        summary.put("completedCount", completedCount);
+        summary.put("failedCount", failedCount);
+        summary.put("cancelledCount", cancelledCount);
+        summary.put("refundedCount", refundedCount);
+        summary.put("totalPaid", totalPaid);
+        summary.put("totalPending", totalPending);
+        summary.put("totalFailed", totalFailed);
+        summary.put("unpaidCount", pendingCount + failedCount); // Unpaid = pending + failed
+        summary.put("paidCount", completedCount); // Paid = completed
+        
+        log.info("Group {} payment summary - Total: {}, Pending: {}, Completed: {}, Failed: {}", 
+            groupId, groupPayments.size(), pendingCount, completedCount, failedCount);
+        
+        return summary;
     }
 
     private void sendPaymentRequestNotification(User user, Group group, GroupPaymentRequest request) {

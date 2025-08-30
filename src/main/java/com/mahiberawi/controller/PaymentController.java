@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import com.mahiberawi.entity.PaymentStatus;
 
 @RestController
 @RequestMapping("/payments")
@@ -437,6 +438,116 @@ public class PaymentController {
                 .success(true)
                 .message("Pending payments retrieved successfully")
                 .data(payments)
+                .build());
+    }
+
+    // ========== NEW PAYMENT STATUS FILTERING ENDPOINTS ==========
+
+    @Operation(
+        summary = "Get user's payments with status filtering",
+        description = "Retrieves user's payments filtered by status (PENDING, COMPLETED, FAILED, CANCELLED, REFUNDED)"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "User payments retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @GetMapping("/user/filtered")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getUserPaymentsFiltered(
+            @Parameter(description = "Payment statuses to filter by", required = false)
+            @RequestParam(required = false) List<PaymentStatus> status,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<PaymentResponse> payments = groupPaymentService.getUserPaymentsFiltered(user, status);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("User payments retrieved successfully")
+                .data(payments)
+                .build());
+    }
+
+    @Operation(
+        summary = "Get user's payment summary",
+        description = "Retrieves summary of user's payments grouped by status"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "User payment summary retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @GetMapping("/user/summary")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getUserPaymentSummary(
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        Map<String, Object> summary = groupPaymentService.getUserPaymentSummary(user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("User payment summary retrieved successfully")
+                .data(summary)
+                .build());
+    }
+
+    @Operation(
+        summary = "Get group payments with status filtering",
+        description = "Retrieves group payments filtered by status. Only admins and moderators can access."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Group payments retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to view group payments"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @GetMapping("/group/{groupId}/filtered")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getGroupPaymentsFiltered(
+            @Parameter(description = "Group ID", required = true)
+            @PathVariable String groupId,
+            @Parameter(description = "Payment statuses to filter by", required = false)
+            @RequestParam(required = false) List<PaymentStatus> status,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        List<PaymentResponse> payments = groupPaymentService.getGroupPaymentsFiltered(groupId, user, status);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Group payments retrieved successfully")
+                .data(payments)
+                .build());
+    }
+
+    @Operation(
+        summary = "Get group payment summary",
+        description = "Retrieves summary of group payments grouped by status. Only admins and moderators can access."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Group payment summary retrieved successfully",
+            content = @Content(schema = @Schema(implementation = com.mahiberawi.dto.ApiResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Not authorized to view group payment summary"),
+        @ApiResponse(responseCode = "404", description = "Group not found")
+    })
+    @GetMapping("/group/{groupId}/summary")
+    public ResponseEntity<com.mahiberawi.dto.ApiResponse> getGroupPaymentSummary(
+            @Parameter(description = "Group ID", required = true)
+            @PathVariable String groupId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal User user) {
+        Map<String, Object> summary = groupPaymentService.getGroupPaymentSummary(groupId, user);
+        return ResponseEntity.ok(com.mahiberawi.dto.ApiResponse.builder()
+                .success(true)
+                .message("Group payment summary retrieved successfully")
+                .data(summary)
                 .build());
     }
 

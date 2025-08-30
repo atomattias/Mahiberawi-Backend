@@ -62,7 +62,7 @@ public class PaymentService {
 
         // Here you would integrate with a payment gateway
         // For now, we'll simulate a successful payment
-        payment.setStatus(PaymentStatus.COMPLETED);
+        payment.setStatus(PaymentStatus.PAID);
         Payment processedPayment = paymentRepository.save(payment);
 
         return mapToPaymentResponse(processedPayment);
@@ -180,7 +180,7 @@ public class PaymentService {
     }
     
     public List<PaymentResponse> getCompletedPayments() {
-        List<Payment> payments = paymentRepository.findByStatus(PaymentStatus.COMPLETED);
+        List<Payment> payments = paymentRepository.findByStatus(PaymentStatus.PAID);
         return payments.stream()
                 .map(this::mapToPaymentResponse)
                 .collect(Collectors.toList());

@@ -109,7 +109,7 @@ public class EqubService {
         // Verify minimum payment threshold
         List<Payment> roundPayments = paymentRepository.findByEqubRoundEntity(currentRound);
         long paidMembers = roundPayments.stream()
-                .filter(p -> p.getStatus() == PaymentStatus.COMPLETED)
+                .filter(p -> p.getStatus() == PaymentStatus.PAID)
                 .count();
 
         List<GroupMember> activeMembers = groupMemberRepository.findByGroupAndStatus(group, GroupMemberStatus.ACTIVE);

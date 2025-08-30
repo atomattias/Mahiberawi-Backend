@@ -2,7 +2,7 @@ package com.mahiberawi.entity;
 
 public enum PaymentStatus {
     PENDING,
-    COMPLETED,
+    PAID,
     FAILED,
     REFUNDED,
     CANCELLED
