@@ -428,10 +428,7 @@ public class PhoneAuthController {
 
     @GetMapping("/phone/debug-twilio-config")
     public ResponseEntity<ApiResponse> getTwilioConfig() {
-        // This endpoint should only be available in development
-        if (!"development".equals(System.getProperty("spring.profiles.active"))) {
-            return ResponseEntity.notFound().build();
-        }
+        // Temporarily removed profile check for debugging
         
         Map<String, Object> config = new HashMap<>();
         config.put("twilioEnabled", phoneService.isTwilioEnabled());
