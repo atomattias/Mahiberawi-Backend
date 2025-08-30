@@ -13,6 +13,7 @@
   },
   "variables": {
     "SPRING_PROFILES_ACTIVE": "development",
-    "RAILWAY_ENVIRONMENT": "development"
+    "RAILWAY_ENVIRONMENT": "development",
+    "TWILIO_ENABLED_DEV": "true"
   }
 }

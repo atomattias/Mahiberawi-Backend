@@ -43,6 +43,7 @@ public class GroupService {
     private final UserService userService;
     private final NotificationService notificationService;
     private final EmailService emailService;
+    private final PhoneService phoneService;
     private final EventRepository eventRepository;
     private final MessageRepository messageRepository;
     private final PaymentRepository paymentRepository;
@@ -985,7 +986,7 @@ public class GroupService {
         invitation = groupInvitationRepository.save(invitation);
 
         // Send SMS
-        boolean smsSent = emailService.sendSMSInvitation(
+        boolean smsSent = phoneService.sendGroupInvitationSms(
                 phone, group.getName(), inviter.getName(), invitationCode, expiresAt, message);
 
         if (!smsSent) {

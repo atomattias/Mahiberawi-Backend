@@ -404,30 +404,7 @@ public class EmailService {
         }
     }
 
-    /**
-     * Send SMS invitation (placeholder for SMS service integration)
-     */
-    @Transactional
-    public boolean sendSMSInvitation(String phone, String groupName, String inviterName, 
-                                   String invitationCode, LocalDateTime expiresAt, String customMessage) {
-        try {
-            log.info("Sending SMS invitation to: {}", phone);
-            
-            // TODO: Integrate with actual SMS service (Twilio, AWS SNS, etc.)
-            // For now, just log the SMS content
-            String smsContent = buildSMSInvitationContent(inviterName, groupName, invitationCode, expiresAt, customMessage);
-            log.info("SMS content for {}: {}", phone, smsContent);
-            
-            // In a real implementation, you would send the SMS here
-            // smsService.sendSMS(phone, smsContent);
-            
-            return true;
-            
-        } catch (Exception e) {
-            log.error("Failed to send SMS invitation to: {}", phone, e);
-            return false;
-        }
-    }
+
 
     /**
      * Generate unique invitation code
@@ -466,17 +443,5 @@ public class EmailService {
         return content.toString();
     }
 
-    private String buildSMSInvitationContent(String inviterName, String groupName, 
-                                           String invitationCode, LocalDateTime expiresAt, String customMessage) {
-        StringBuilder content = new StringBuilder();
-        content.append(inviterName).append(" invited you to join \"").append(groupName).append("\" on Dewel. ");
-        content.append("Code: ").append(invitationCode).append(". ");
-        content.append("Expires: ").append(expiresAt.toString()).append(". ");
-        
-        if (customMessage != null && !customMessage.trim().isEmpty()) {
-            content.append("Message: ").append(customMessage);
-        }
-        
-        return content.toString();
-    }
+
 } 

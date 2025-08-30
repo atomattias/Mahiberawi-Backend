@@ -268,6 +268,42 @@ public class PhoneService {
     }
 
     /**
+     * Send group invitation SMS
+     */
+    @Transactional
+    public boolean sendGroupInvitationSms(String phone, String groupName, String inviterName, 
+                                        String invitationCode, LocalDateTime expiresAt, String customMessage) {
+        try {
+            log.info("Sending group invitation SMS to: {}", phone);
+            
+            // Get appropriate SMS provider
+            SmsProvider smsProvider = smsProviderFactory.getSmsProvider(phone);
+            if (smsProvider == null) {
+                log.error("No SMS provider found for phone number: {}", phone);
+                return false;
+            }
+            
+            // Build SMS message
+            String message = buildGroupInvitationSmsContent(inviterName, groupName, invitationCode, expiresAt, customMessage);
+            
+            // Send SMS
+            boolean smsSent = smsProvider.sendSms(phone, message);
+            
+            if (smsSent) {
+                log.info("Group invitation SMS sent successfully to: {}", phone);
+                return true;
+            } else {
+                log.error("Failed to send group invitation SMS to: {}", phone);
+                return false;
+            }
+            
+        } catch (Exception e) {
+            log.error("Failed to send group invitation SMS to: {}", phone, e);
+            return false;
+        }
+    }
+
+    /**
      * Get Twilio configuration (for debugging)
      */
     public Map<String, Object> getTwilioConfig() {
@@ -337,5 +373,22 @@ public class PhoneService {
             "The Dewel Team",
             userName, code, verificationCodeExpiryMinutes
         );
+    }
+
+    /**
+     * Build group invitation SMS content
+     */
+    private String buildGroupInvitationSmsContent(String inviterName, String groupName, 
+                                                String invitationCode, LocalDateTime expiresAt, String customMessage) {
+        StringBuilder content = new StringBuilder();
+        content.append(inviterName).append(" invited you to join \"").append(groupName).append("\" on Dewel. ");
+        content.append("Code: ").append(invitationCode).append(". ");
+        content.append("Expires: ").append(expiresAt.toString()).append(". ");
+        
+        if (customMessage != null && !customMessage.trim().isEmpty()) {
+            content.append("Message: ").append(customMessage);
+        }
+        
+        return content.toString();
     }
 } 
