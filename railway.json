@@ -6,14 +6,13 @@
   },
   "deploy": {
     "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 5,
+    "restartPolicyMaxRetries": 10,
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 300,
     "startCommand": "./start.sh"
   },
   "variables": {
-    "SPRING_PROFILES_ACTIVE": "development",
-    "RAILWAY_ENVIRONMENT": "development",
-    "TWILIO_ENABLED_DEV": "true"
+    "SPRING_PROFILES_ACTIVE": "production",
+    "RAILWAY_ENVIRONMENT": "production"
   }
 }
