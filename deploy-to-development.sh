@@ -53,7 +53,23 @@ echo
 echo "🔧 Updating Railway configuration for development..."
 cp railway-development.json railway.json
 git add railway.json
-git commit -m "Update Railway config for development deployment" || echo "No changes to commit"
+
+# Check if there are changes to commit
+if [ -n "$(git diff --cached)" ]; then
+    read -p "   Do you want to commit Railway config changes? (y/n): " COMMIT_RAILWAY
+    
+    if [ "$COMMIT_RAILWAY" = "y" ] || [ "$COMMIT_RAILWAY" = "Y" ]; then
+        read -p "   Enter commit message (or press Enter for default): " RAILWAY_COMMIT_MESSAGE
+        if [ -z "$RAILWAY_COMMIT_MESSAGE" ]; then
+            RAILWAY_COMMIT_MESSAGE="Update Railway config for development deployment"
+        fi
+        git commit -m "$RAILWAY_COMMIT_MESSAGE"
+    else
+        echo "   Skipping Railway config commit"
+    fi
+else
+    echo "   No Railway config changes to commit"
+fi
 
 # Push to development branch
 echo
