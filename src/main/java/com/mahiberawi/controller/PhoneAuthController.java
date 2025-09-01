@@ -457,4 +457,54 @@ public class PhoneAuthController {
                 .data(envVars)
                 .build());
     }
+
+    @GetMapping("/phone/debug-twilio-test")
+    public ResponseEntity<ApiResponse> testTwilioDirectly() {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // Test Twilio initialization directly
+            String accountSid = System.getenv("TWILIO_ACCOUNT_SID_DEV");
+            String authToken = System.getenv("TWILIO_AUTH_TOKEN_DEV");
+            String fromNumber = System.getenv("TWILIO_FROM_NUMBER_DEV");
+            
+            result.put("accountSidLength", accountSid != null ? accountSid.length() : 0);
+            result.put("authTokenLength", authToken != null ? authToken.length() : 0);
+            result.put("fromNumber", fromNumber);
+            
+            // Try to initialize Twilio
+            if (accountSid != null && authToken != null) {
+                try {
+                    com.twilio.Twilio.init(accountSid, authToken);
+                    result.put("twilioInit", "SUCCESS");
+                    
+                    // Try to create a PhoneNumber object
+                    try {
+                        com.twilio.type.PhoneNumber testPhone = new com.twilio.type.PhoneNumber("+4791261801");
+                        result.put("phoneNumberCreation", "SUCCESS");
+                        result.put("testPhoneNumber", testPhone.toString());
+                    } catch (Exception e) {
+                        result.put("phoneNumberCreation", "FAILED");
+                        result.put("phoneNumberError", e.getMessage());
+                    }
+                    
+                } catch (Exception e) {
+                    result.put("twilioInit", "FAILED");
+                    result.put("twilioInitError", e.getMessage());
+                }
+            } else {
+                result.put("twilioInit", "SKIPPED - Missing credentials");
+            }
+            
+        } catch (Exception e) {
+            result.put("error", e.getMessage());
+            result.put("stackTrace", e.getStackTrace().toString());
+        }
+        
+        return ResponseEntity.ok(ApiResponse.builder()
+                .success(true)
+                .message("Direct Twilio test results")
+                .data(result)
+                .build());
+    }
 } 
