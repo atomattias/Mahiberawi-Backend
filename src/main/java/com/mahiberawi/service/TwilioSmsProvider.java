@@ -33,6 +33,13 @@ public class TwilioSmsProvider implements SmsProvider {
     @Value("${sms.twilio.enabled:false}")
     private boolean enabled;
     
+    // Getter methods for debugging
+    public String getAccountSid() { return accountSid; }
+    public String getAuthToken() { return authToken; }
+    public String getFromNumber() { return fromNumber; }
+    public String getServiceSid() { return serviceSid; }
+    public boolean isEnabled() { return enabled; }
+    
     @Override
     public boolean sendSms(String phoneNumber, String message) {
         log.info("Twilio SMS provider - enabled: {}, accountSid: {}, fromNumber: {}", 
