@@ -83,14 +83,23 @@ public class TwilioSmsProvider implements SmsProvider {
                 phoneNumber, fromNumber, message.length());
             
             // Send SMS using Twilio API
-            Message.creator(
+            Message messageObj = Message.creator(
                 new PhoneNumber(phoneNumber), 
                 new PhoneNumber(fromNumber), 
                 message
             ).create();
             
-            log.info("Twilio SMS sent successfully to {}: {}", phoneNumber, message);
-            return true;
+            log.info("Twilio SMS sent successfully to {}: {} (SID: {}, Status: {})", 
+                phoneNumber, message, messageObj.getSid(), messageObj.getStatus());
+            
+            // Check if the message was created successfully
+            if (messageObj.getSid() != null && !messageObj.getSid().isEmpty()) {
+                log.info("SMS created successfully with SID: {}", messageObj.getSid());
+                return true;
+            } else {
+                log.error("SMS creation failed - no SID returned");
+                return false;
+            }
         } catch (Exception e) {
             log.error("Failed to send SMS via Twilio to {}: {}", phoneNumber, e.getMessage());
             log.error("Twilio SMS error details - Exception type: {}, Full stack trace:", e.getClass().getSimpleName());

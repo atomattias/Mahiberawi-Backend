@@ -332,6 +332,18 @@ public class PhoneService {
     }
 
     /**
+     * Get SMS provider for a specific phone number (for debugging)
+     */
+    public SmsProvider getSmsProviderForPhone(String phoneNumber) {
+        try {
+            return smsProviderFactory.getSmsProvider(phoneNumber);
+        } catch (Exception e) {
+            log.error("Error getting SMS provider for phone: {}", phoneNumber, e);
+            return null;
+        }
+    }
+
+    /**
      * Generate a random verification code
      */
     private String generateVerificationCode() {

@@ -565,4 +565,41 @@ public class PhoneAuthController {
                 .data(result)
                 .build());
     }
+
+    @GetMapping("/phone/debug-sms-factory")
+    public ResponseEntity<ApiResponse> testSmsFactory() {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // Test the SMS provider factory
+            String testPhone = "+4791261801";
+            result.put("testPhone", testPhone);
+            
+            // Get the SMS provider factory from the service
+            var smsProvider = phoneService.getSmsProviderForPhone(testPhone);
+            if (smsProvider != null) {
+                result.put("providerFound", true);
+                result.put("providerName", smsProvider.getProviderName());
+                result.put("providerEnabled", smsProvider instanceof com.mahiberawi.service.TwilioSmsProvider ? 
+                    ((com.mahiberawi.service.TwilioSmsProvider) smsProvider).isEnabled() : "N/A");
+            } else {
+                result.put("providerFound", false);
+            }
+            
+            // Test if the provider supports the phone number
+            if (smsProvider != null) {
+                result.put("supportsPhoneNumber", smsProvider.supportsPhoneNumber(testPhone));
+            }
+            
+        } catch (Exception e) {
+            result.put("error", e.getMessage());
+            result.put("stackTrace", e.getStackTrace().toString());
+        }
+        
+        return ResponseEntity.ok(ApiResponse.builder()
+                .success(true)
+                .message("SMS Factory debug results")
+                .data(result)
+                .build());
+    }
 } 
