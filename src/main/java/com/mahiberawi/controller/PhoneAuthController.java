@@ -445,11 +445,26 @@ public class PhoneAuthController {
     @GetMapping("/phone/debug-env-vars")
     public ResponseEntity<ApiResponse> getEnvVars() {
         Map<String, Object> envVars = new HashMap<>();
-        envVars.put("TWILIO_ACCOUNT_SID_DEV_SET", System.getenv("TWILIO_ACCOUNT_SID_DEV") != null);
-        envVars.put("TWILIO_AUTH_TOKEN_DEV_SET", System.getenv("TWILIO_AUTH_TOKEN_DEV") != null);
-        envVars.put("TWILIO_FROM_NUMBER_DEV_SET", System.getenv("TWILIO_FROM_NUMBER_DEV") != null);
-        envVars.put("TWILIO_SERVICE_SID_DEV_SET", System.getenv("TWILIO_SERVICE_SID_DEV") != null);
-        envVars.put("activeProfile", System.getProperty("spring.profiles.active"));
+        String activeProfile = System.getProperty("spring.profiles.active");
+        envVars.put("activeProfile", activeProfile);
+        
+        // Check environment variables based on active profile
+        if ("production".equals(activeProfile)) {
+            envVars.put("TWILIO_ACCOUNT_SID_SET", System.getenv("TWILIO_ACCOUNT_SID") != null);
+            envVars.put("TWILIO_AUTH_TOKEN_SET", System.getenv("TWILIO_AUTH_TOKEN") != null);
+            envVars.put("TWILIO_FROM_NUMBER_SET", System.getenv("TWILIO_FROM_NUMBER") != null);
+            envVars.put("TWILIO_SERVICE_SID_SET", System.getenv("TWILIO_SERVICE_SID") != null);
+        } else if ("development".equals(activeProfile)) {
+            envVars.put("TWILIO_ACCOUNT_SID_DEV_SET", System.getenv("TWILIO_ACCOUNT_SID_DEV") != null);
+            envVars.put("TWILIO_AUTH_TOKEN_DEV_SET", System.getenv("TWILIO_AUTH_TOKEN_DEV") != null);
+            envVars.put("TWILIO_FROM_NUMBER_DEV_SET", System.getenv("TWILIO_FROM_NUMBER_DEV") != null);
+            envVars.put("TWILIO_SERVICE_SID_DEV_SET", System.getenv("TWILIO_SERVICE_SID_DEV") != null);
+        } else if ("staging".equals(activeProfile)) {
+            envVars.put("TWILIO_ACCOUNT_SID_STAGING_SET", System.getenv("TWILIO_ACCOUNT_SID_STAGING") != null);
+            envVars.put("TWILIO_AUTH_TOKEN_STAGING_SET", System.getenv("TWILIO_AUTH_TOKEN_STAGING") != null);
+            envVars.put("TWILIO_FROM_NUMBER_STAGING_SET", System.getenv("TWILIO_FROM_NUMBER_STAGING") != null);
+            envVars.put("TWILIO_SERVICE_SID_STAGING_SET", System.getenv("TWILIO_SERVICE_SID_STAGING") != null);
+        }
         
         return ResponseEntity.ok(ApiResponse.builder()
                 .success(true)
@@ -463,10 +478,29 @@ public class PhoneAuthController {
         Map<String, Object> result = new HashMap<>();
         
         try {
-            // Test Twilio initialization directly
-            String accountSid = System.getenv("TWILIO_ACCOUNT_SID_DEV");
-            String authToken = System.getenv("TWILIO_AUTH_TOKEN_DEV");
-            String fromNumber = System.getenv("TWILIO_FROM_NUMBER_DEV");
+            // Get environment variables based on active profile
+            String activeProfile = System.getProperty("spring.profiles.active");
+            String accountSid, authToken, fromNumber;
+            
+            if ("production".equals(activeProfile)) {
+                accountSid = System.getenv("TWILIO_ACCOUNT_SID");
+                authToken = System.getenv("TWILIO_AUTH_TOKEN");
+                fromNumber = System.getenv("TWILIO_FROM_NUMBER");
+            } else if ("development".equals(activeProfile)) {
+                accountSid = System.getenv("TWILIO_ACCOUNT_SID_DEV");
+                authToken = System.getenv("TWILIO_AUTH_TOKEN_DEV");
+                fromNumber = System.getenv("TWILIO_FROM_NUMBER_DEV");
+            } else if ("staging".equals(activeProfile)) {
+                accountSid = System.getenv("TWILIO_ACCOUNT_SID_STAGING");
+                authToken = System.getenv("TWILIO_AUTH_TOKEN_STAGING");
+                fromNumber = System.getenv("TWILIO_FROM_NUMBER_STAGING");
+            } else {
+                accountSid = System.getenv("TWILIO_ACCOUNT_SID_DEV");
+                authToken = System.getenv("TWILIO_AUTH_TOKEN_DEV");
+                fromNumber = System.getenv("TWILIO_FROM_NUMBER_DEV");
+            }
+            
+            result.put("activeProfile", activeProfile);
             
             result.put("accountSidLength", accountSid != null ? accountSid.length() : 0);
             result.put("authTokenLength", authToken != null ? authToken.length() : 0);
@@ -513,10 +547,29 @@ public class PhoneAuthController {
         Map<String, Object> result = new HashMap<>();
         
         try {
-            // Test actual SMS sending
-            String accountSid = System.getenv("TWILIO_ACCOUNT_SID_DEV");
-            String authToken = System.getenv("TWILIO_AUTH_TOKEN_DEV");
-            String fromNumber = System.getenv("TWILIO_FROM_NUMBER_DEV");
+            // Get environment variables based on active profile
+            String activeProfile = System.getProperty("spring.profiles.active");
+            String accountSid, authToken, fromNumber;
+            
+            if ("production".equals(activeProfile)) {
+                accountSid = System.getenv("TWILIO_ACCOUNT_SID");
+                authToken = System.getenv("TWILIO_AUTH_TOKEN");
+                fromNumber = System.getenv("TWILIO_FROM_NUMBER");
+            } else if ("development".equals(activeProfile)) {
+                accountSid = System.getenv("TWILIO_ACCOUNT_SID_DEV");
+                authToken = System.getenv("TWILIO_AUTH_TOKEN_DEV");
+                fromNumber = System.getenv("TWILIO_FROM_NUMBER_DEV");
+            } else if ("staging".equals(activeProfile)) {
+                accountSid = System.getenv("TWILIO_ACCOUNT_SID_STAGING");
+                authToken = System.getenv("TWILIO_AUTH_TOKEN_STAGING");
+                fromNumber = System.getenv("TWILIO_FROM_NUMBER_STAGING");
+            } else {
+                accountSid = System.getenv("TWILIO_ACCOUNT_SID_DEV");
+                authToken = System.getenv("TWILIO_AUTH_TOKEN_DEV");
+                fromNumber = System.getenv("TWILIO_FROM_NUMBER_DEV");
+            }
+            
+            result.put("activeProfile", activeProfile);
             
             if (accountSid != null && authToken != null) {
                 try {
