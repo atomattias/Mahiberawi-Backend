@@ -602,4 +602,41 @@ public class PhoneAuthController {
                 .data(result)
                 .build());
     }
+
+    @GetMapping("/phone/debug-sms-send-direct")
+    public ResponseEntity<ApiResponse> testSmsSendDirect() {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // Test SMS sending through the PhoneService directly
+            String testPhone = "+4791261801";
+            result.put("testPhone", testPhone);
+            
+            // Call the PhoneService method directly
+            boolean smsSent = phoneService.sendTestSms(testPhone);
+            result.put("smsSent", smsSent);
+            
+            // Get additional debug info
+            var smsProvider = phoneService.getSmsProviderForPhone(testPhone);
+            if (smsProvider != null) {
+                result.put("providerName", smsProvider.getProviderName());
+                result.put("providerEnabled", smsProvider instanceof com.mahiberawi.service.TwilioSmsProvider ? 
+                    ((com.mahiberawi.service.TwilioSmsProvider) smsProvider).isEnabled() : "N/A");
+            }
+            
+        } catch (Exception e) {
+            result.put("error", e.getMessage());
+            result.put("errorType", e.getClass().getSimpleName());
+            if (e.getCause() != null) {
+                result.put("errorCause", e.getCause().getMessage());
+            }
+            result.put("stackTrace", e.getStackTrace().toString());
+        }
+        
+        return ResponseEntity.ok(ApiResponse.builder()
+                .success(true)
+                .message("Direct SMS sending test results")
+                .data(result)
+                .build());
+    }
 } 
