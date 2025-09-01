@@ -71,7 +71,16 @@ public class TwilioSmsProvider implements SmsProvider {
         
         try {
             // Initialize Twilio with credentials
+            log.info("Initializing Twilio with accountSid: {} (length: {}), fromNumber: '{}'", 
+                accountSid != null ? accountSid.substring(0, Math.min(10, accountSid.length())) + "..." : "NULL",
+                accountSid != null ? accountSid.length() : 0,
+                fromNumber);
+            
             Twilio.init(accountSid, authToken);
+            log.info("Twilio initialized successfully");
+            
+            log.info("Creating Twilio SMS message - To: '{}', From: '{}', Message length: {}", 
+                phoneNumber, fromNumber, message.length());
             
             // Send SMS using Twilio API
             Message.creator(
@@ -84,6 +93,17 @@ public class TwilioSmsProvider implements SmsProvider {
             return true;
         } catch (Exception e) {
             log.error("Failed to send SMS via Twilio to {}: {}", phoneNumber, e.getMessage());
+            log.error("Twilio SMS error details - Exception type: {}, Full stack trace:", e.getClass().getSimpleName());
+            log.error("Stack trace:", e);
+            
+            // Log additional Twilio-specific error information
+            if (e.getMessage() != null) {
+                log.error("Twilio error message: {}", e.getMessage());
+            }
+            if (e.getCause() != null) {
+                log.error("Twilio error cause: {}", e.getCause().getMessage());
+            }
+            
             return false;
         }
     }
@@ -115,6 +135,17 @@ public class TwilioSmsProvider implements SmsProvider {
             return "pending".equals(verification.getStatus());
         } catch (Exception e) {
             log.error("Failed to send verification code via Twilio to {}: {}", phoneNumber, e.getMessage());
+            log.error("Twilio verification error details - Exception type: {}, Full stack trace:", e.getClass().getSimpleName());
+            log.error("Stack trace:", e);
+            
+            // Log additional Twilio-specific error information
+            if (e.getMessage() != null) {
+                log.error("Twilio verification error message: {}", e.getMessage());
+            }
+            if (e.getCause() != null) {
+                log.error("Twilio verification error cause: {}", e.getCause().getMessage());
+            }
+            
             return false;
         }
     }
@@ -140,6 +171,17 @@ public class TwilioSmsProvider implements SmsProvider {
             return "approved".equals(verificationCheck.getStatus());
         } catch (Exception e) {
             log.error("Failed to verify code via Twilio for {}: {}", phoneNumber, e.getMessage());
+            log.error("Twilio verification check error details - Exception type: {}, Full stack trace:", e.getClass().getSimpleName());
+            log.error("Stack trace:", e);
+            
+            // Log additional Twilio-specific error information
+            if (e.getMessage() != null) {
+                log.error("Twilio verification check error message: {}", e.getMessage());
+            }
+            if (e.getCause() != null) {
+                log.error("Twilio verification check error cause: {}", e.getCause().getMessage());
+            }
+            
             return false;
         }
     }
