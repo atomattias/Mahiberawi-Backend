@@ -46,7 +46,7 @@ public class SecurityConfig {
                            "/auth/forgot-password", "/auth/reset-password", "/auth/resend-verification", 
                            "/auth/test-email", "/auth/delete-user", "/auth/phone/register", "/auth/phone/verify", 
                            "/auth/phone/login", "/auth/phone/forgot-password", "/auth/phone/test-sms", 
-                           "/auth/phone/debug-codes", "/auth/phone/resend-verification", "/auth/phone/registration-status/**",
+                           "/auth/phone/debug-codes", "/auth/phone/debug-twilio-config", "/auth/phone/debug-env-vars", "/auth/phone/resend-verification", "/auth/phone/registration-status/**",
                            "/auth/send-phone-verification", "/admin/secure-promote-super-admin/**").permitAll()
             .requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html").permitAll()
             .requestMatchers("/v3/api-docs/**").permitAll()
