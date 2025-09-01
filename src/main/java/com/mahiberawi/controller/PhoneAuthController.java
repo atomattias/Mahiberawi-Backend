@@ -457,4 +457,186 @@ public class PhoneAuthController {
                 .data(envVars)
                 .build());
     }
+
+    @GetMapping("/phone/debug-twilio-test")
+    public ResponseEntity<ApiResponse> testTwilioDirectly() {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // Test Twilio initialization directly
+            String accountSid = System.getenv("TWILIO_ACCOUNT_SID_DEV");
+            String authToken = System.getenv("TWILIO_AUTH_TOKEN_DEV");
+            String fromNumber = System.getenv("TWILIO_FROM_NUMBER_DEV");
+            
+            result.put("accountSidLength", accountSid != null ? accountSid.length() : 0);
+            result.put("authTokenLength", authToken != null ? authToken.length() : 0);
+            result.put("fromNumber", fromNumber);
+            
+            // Try to initialize Twilio
+            if (accountSid != null && authToken != null) {
+                try {
+                    com.twilio.Twilio.init(accountSid, authToken);
+                    result.put("twilioInit", "SUCCESS");
+                    
+                    // Try to create a PhoneNumber object
+                    try {
+                        com.twilio.type.PhoneNumber testPhone = new com.twilio.type.PhoneNumber("+4791261801");
+                        result.put("phoneNumberCreation", "SUCCESS");
+                        result.put("testPhoneNumber", testPhone.toString());
+                    } catch (Exception e) {
+                        result.put("phoneNumberCreation", "FAILED");
+                        result.put("phoneNumberError", e.getMessage());
+                    }
+                    
+                } catch (Exception e) {
+                    result.put("twilioInit", "FAILED");
+                    result.put("twilioInitError", e.getMessage());
+                }
+            } else {
+                result.put("twilioInit", "SKIPPED - Missing credentials");
+            }
+            
+        } catch (Exception e) {
+            result.put("error", e.getMessage());
+            result.put("stackTrace", e.getStackTrace().toString());
+        }
+        
+        return ResponseEntity.ok(ApiResponse.builder()
+                .success(true)
+                .message("Direct Twilio test results")
+                .data(result)
+                .build());
+    }
+
+    @GetMapping("/phone/debug-twilio-send")
+    public ResponseEntity<ApiResponse> testTwilioSmsSending() {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // Test actual SMS sending
+            String accountSid = System.getenv("TWILIO_ACCOUNT_SID_DEV");
+            String authToken = System.getenv("TWILIO_AUTH_TOKEN_DEV");
+            String fromNumber = System.getenv("TWILIO_FROM_NUMBER_DEV");
+            
+            if (accountSid != null && authToken != null) {
+                try {
+                    com.twilio.Twilio.init(accountSid, authToken);
+                    result.put("twilioInit", "SUCCESS");
+                    
+                    // Try to send a test SMS
+                    try {
+                        com.twilio.rest.api.v2010.account.Message message = com.twilio.rest.api.v2010.account.Message.creator(
+                            new com.twilio.type.PhoneNumber("+4791261801"),
+                            new com.twilio.type.PhoneNumber(fromNumber),
+                            "Test SMS from debug endpoint - " + java.time.LocalDateTime.now()
+                        ).create();
+                        
+                        result.put("smsSending", "SUCCESS");
+                        result.put("messageSid", message.getSid());
+                        result.put("status", message.getStatus());
+                        result.put("errorCode", message.getErrorCode());
+                        result.put("errorMessage", message.getErrorMessage());
+                        
+                    } catch (Exception e) {
+                        result.put("smsSending", "FAILED");
+                        result.put("smsError", e.getMessage());
+                        result.put("smsErrorType", e.getClass().getSimpleName());
+                        if (e.getCause() != null) {
+                            result.put("smsErrorCause", e.getCause().getMessage());
+                        }
+                    }
+                    
+                } catch (Exception e) {
+                    result.put("twilioInit", "FAILED");
+                    result.put("twilioInitError", e.getMessage());
+                }
+            } else {
+                result.put("twilioInit", "SKIPPED - Missing credentials");
+            }
+            
+        } catch (Exception e) {
+            result.put("error", e.getMessage());
+            result.put("stackTrace", e.getStackTrace().toString());
+        }
+        
+        return ResponseEntity.ok(ApiResponse.builder()
+                .success(true)
+                .message("Direct Twilio SMS sending test results")
+                .data(result)
+                .build());
+    }
+
+    @GetMapping("/phone/debug-sms-factory")
+    public ResponseEntity<ApiResponse> testSmsFactory() {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // Test the SMS provider factory
+            String testPhone = "+4791261801";
+            result.put("testPhone", testPhone);
+            
+            // Get the SMS provider factory from the service
+            var smsProvider = phoneService.getSmsProviderForPhone(testPhone);
+            if (smsProvider != null) {
+                result.put("providerFound", true);
+                result.put("providerName", smsProvider.getProviderName());
+                result.put("providerEnabled", smsProvider instanceof com.mahiberawi.service.TwilioSmsProvider ? 
+                    ((com.mahiberawi.service.TwilioSmsProvider) smsProvider).isEnabled() : "N/A");
+            } else {
+                result.put("providerFound", false);
+            }
+            
+            // Test if the provider supports the phone number
+            if (smsProvider != null) {
+                result.put("supportsPhoneNumber", smsProvider.supportsPhoneNumber(testPhone));
+            }
+            
+        } catch (Exception e) {
+            result.put("error", e.getMessage());
+            result.put("stackTrace", e.getStackTrace().toString());
+        }
+        
+        return ResponseEntity.ok(ApiResponse.builder()
+                .success(true)
+                .message("SMS Factory debug results")
+                .data(result)
+                .build());
+    }
+
+    @GetMapping("/phone/debug-sms-send-direct")
+    public ResponseEntity<ApiResponse> testSmsSendDirect() {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // Test SMS sending through the PhoneService directly
+            String testPhone = "+4791261801";
+            result.put("testPhone", testPhone);
+            
+            // Call the PhoneService method directly
+            boolean smsSent = phoneService.sendTestSms(testPhone);
+            result.put("smsSent", smsSent);
+            
+            // Get additional debug info
+            var smsProvider = phoneService.getSmsProviderForPhone(testPhone);
+            if (smsProvider != null) {
+                result.put("providerName", smsProvider.getProviderName());
+                result.put("providerEnabled", smsProvider instanceof com.mahiberawi.service.TwilioSmsProvider ? 
+                    ((com.mahiberawi.service.TwilioSmsProvider) smsProvider).isEnabled() : "N/A");
+            }
+            
+        } catch (Exception e) {
+            result.put("error", e.getMessage());
+            result.put("errorType", e.getClass().getSimpleName());
+            if (e.getCause() != null) {
+                result.put("errorCause", e.getCause().getMessage());
+            }
+            result.put("stackTrace", e.getStackTrace().toString());
+        }
+        
+        return ResponseEntity.ok(ApiResponse.builder()
+                .success(true)
+                .message("Direct SMS sending test results")
+                .data(result)
+                .build());
+    }
 } 
