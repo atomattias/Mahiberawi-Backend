@@ -7,8 +7,8 @@ import com.twilio.rest.verify.v2.service.VerificationCheck;
 import com.twilio.type.PhoneNumber;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import jakarta.annotation.PostConstruct;
 
 /**
  * Twilio SMS provider implementation for international phone numbers
@@ -18,20 +18,45 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class TwilioSmsProvider implements SmsProvider {
     
-    @Value("${sms.twilio.account-sid:}")
     private String accountSid;
-    
-    @Value("${sms.twilio.auth-token:}")
     private String authToken;
-    
-    @Value("${sms.twilio.from-number:}")
     private String fromNumber;
-    
-    @Value("${sms.twilio.service-sid:}")
     private String serviceSid;
-    
-    @Value("${sms.twilio.enabled:false}")
     private boolean enabled;
+    
+    @PostConstruct
+    public void init() {
+        // Read environment variables directly since @Value is not working
+        String activeProfile = System.getProperty("spring.profiles.active");
+        
+        if ("production".equals(activeProfile)) {
+            accountSid = System.getenv("TWILIO_ACCOUNT_SID");
+            authToken = System.getenv("TWILIO_AUTH_TOKEN");
+            fromNumber = System.getenv("TWILIO_FROM_NUMBER");
+            serviceSid = System.getenv("TWILIO_SERVICE_SID");
+        } else if ("development".equals(activeProfile)) {
+            accountSid = System.getenv("TWILIO_ACCOUNT_SID_DEV");
+            authToken = System.getenv("TWILIO_AUTH_TOKEN_DEV");
+            fromNumber = System.getenv("TWILIO_FROM_NUMBER_DEV");
+            serviceSid = System.getenv("TWILIO_SERVICE_SID_DEV");
+        } else if ("staging".equals(activeProfile)) {
+            accountSid = System.getenv("TWILIO_ACCOUNT_SID_STAGING");
+            authToken = System.getenv("TWILIO_AUTH_TOKEN_STAGING");
+            fromNumber = System.getenv("TWILIO_FROM_NUMBER_STAGING");
+            serviceSid = System.getenv("TWILIO_SERVICE_SID_STAGING");
+        } else {
+            // Default to development
+            accountSid = System.getenv("TWILIO_ACCOUNT_SID_DEV");
+            authToken = System.getenv("TWILIO_AUTH_TOKEN_DEV");
+            fromNumber = System.getenv("TWILIO_FROM_NUMBER_DEV");
+            serviceSid = System.getenv("TWILIO_SERVICE_SID_DEV");
+        }
+        
+        enabled = true; // Always enable for now
+        
+        log.info("TwilioSmsProvider initialized - Profile: {}, AccountSid: {}, FromNumber: {}", 
+                activeProfile, accountSid != null ? "SET" : "NOT SET", fromNumber);
+    }
     
     // Getter methods for debugging
     public String getAccountSid() { return accountSid; }
