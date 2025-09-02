@@ -41,15 +41,39 @@ case $ENV_CHOICE in
         ;;
 esac
 
-# Get target user email
+# Get target user identifier
 echo
-read -p "Enter the email of the user to promote to Super Admin: " TARGET_EMAIL
+echo "Enter the user identifier:"
+echo "1. Email address"
+echo "2. Phone number"
+read -p "Enter choice (1-2): " IDENTIFIER_CHOICE
 
-# Validate email format
-if [[ ! "$TARGET_EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
-    echo "✗ Invalid email format. Please enter a valid email address."
-    exit 1
-fi
+case $IDENTIFIER_CHOICE in
+    1)
+        read -p "Enter the email of the user to promote to Super Admin: " TARGET_EMAIL
+        # Validate email format
+        if [[ ! "$TARGET_EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+            echo "✗ Invalid email format. Please enter a valid email address."
+            exit 1
+        fi
+        USER_IDENTIFIER="$TARGET_EMAIL"
+        IDENTIFIER_TYPE="email"
+        ;;
+    2)
+        read -p "Enter the phone number of the user to promote to Super Admin: " TARGET_PHONE
+        # Basic phone number validation (allows + and digits)
+        if [[ ! "$TARGET_PHONE" =~ ^\+[0-9]+$ ]]; then
+            echo "✗ Invalid phone number format. Please enter a valid phone number (e.g., +4791261801)."
+            exit 1
+        fi
+        USER_IDENTIFIER="$TARGET_PHONE"
+        IDENTIFIER_TYPE="phone"
+        ;;
+    *)
+        echo "✗ Invalid choice. Please select 1 or 2."
+        exit 1
+        ;;
+esac
 
 # Get promotion key
 echo
@@ -64,14 +88,14 @@ fi
 
 echo
 echo "=== Promotion Details ==="
-echo "Target user: $TARGET_EMAIL"
+echo "Target user: $USER_IDENTIFIER ($IDENTIFIER_TYPE)"
 echo "Environment: $ENV_NAME"
 echo "Backend URL: $BASE_URL"
 echo "========================="
 
 # Confirm action
 echo
-read -p "Are you sure you want to promote $TARGET_EMAIL to Super Admin? (y/N): " CONFIRM
+read -p "Are you sure you want to promote $USER_IDENTIFIER to Super Admin? (y/N): " CONFIRM
 
 if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
     echo "Promotion cancelled."
@@ -81,7 +105,8 @@ fi
 # Attempt secure promotion to Super Admin
 echo
 echo "Attempting secure promotion to Super Admin..."
-PROMOTE_RESPONSE=$(curl -s -X POST "$BASE_URL/admin/secure-promote-super-admin/$TARGET_EMAIL?promotionKey=$PROMOTION_KEY" \
+# Use the same endpoint for both email and phone number
+PROMOTE_RESPONSE=$(curl -s -X POST "$BASE_URL/admin/secure-promote-super-admin/$USER_IDENTIFIER?promotionKey=$PROMOTION_KEY" \
   -H "Content-Type: application/json" \
   -w "HTTPSTATUS:%{http_code}")
 
@@ -105,6 +130,6 @@ fi
 
 echo
 echo "=== Secure Super Admin promotion process complete ==="
-echo "User: $TARGET_EMAIL"
+echo "User: $USER_IDENTIFIER ($IDENTIFIER_TYPE)"
 echo "Action: Promoted to SUPER_ADMIN"
 echo "Environment: $ENV_NAME"

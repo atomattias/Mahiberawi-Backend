@@ -75,30 +75,30 @@ public class AdminController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid promotion key or user not found"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Super admin promotion not enabled")
     })
-    @PostMapping("/secure-promote-super-admin/{email}")
+    @PostMapping("/secure-promote-super-admin/{identifier}")
     public ResponseEntity<ApiResponse> securePromoteToSuperAdmin(
-            @Parameter(description = "Email of user to promote", required = true)
-            @PathVariable String email,
+            @Parameter(description = "Email or phone number of user to promote", required = true)
+            @PathVariable String identifier,
             @Parameter(description = "Promotion key from environment variable", required = true)
             @RequestParam String promotionKey) {
         
-        log.info("Secure promotion request for user: {}", email);
+        log.info("Secure promotion request for user identifier: {}", identifier);
         
         try {
-            boolean promoted = userService.securePromoteToSuperAdmin(email, promotionKey);
+            boolean promoted = userService.securePromoteToSuperAdmin(identifier, promotionKey);
             
             if (promoted) {
-                log.info("User {} successfully promoted to Super Admin", email);
+                log.info("User {} successfully promoted to Super Admin", identifier);
                 return ResponseEntity.ok(ApiResponse.builder()
                         .success(true)
                         .message("User promoted to Super Admin successfully")
                         .data(java.util.Map.of(
-                            "email", email,
+                            "identifier", identifier,
                             "role", "SUPER_ADMIN"
                         ))
                         .build());
             } else {
-                log.warn("Failed to promote user {} to Super Admin", email);
+                log.warn("Failed to promote user {} to Super Admin", identifier);
                 return ResponseEntity.badRequest().body(ApiResponse.builder()
                         .success(false)
                         .message("Failed to promote user to Super Admin")
@@ -106,7 +106,7 @@ public class AdminController {
             }
             
         } catch (Exception e) {
-            log.error("Error promoting user {} to Super Admin: {}", email, e.getMessage());
+            log.error("Error promoting user {} to Super Admin: {}", identifier, e.getMessage());
             return ResponseEntity.badRequest().body(ApiResponse.builder()
                     .success(false)
                     .message("Error: " + e.getMessage())

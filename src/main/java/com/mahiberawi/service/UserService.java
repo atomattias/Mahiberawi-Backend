@@ -30,11 +30,16 @@ public class UserService {
     @Value("${SUPER_ADMIN_PROMOTION_KEY:}")
     private String superAdminPromotionKey;
 
-    public User getUserByEmail(String email) {
+        public User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
     }
-
+    
+    public User getUserByPhone(String phone) {
+        return userRepository.findByPhone(phone)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with phone: " + phone));
+    }
+    
     public User getUserById(String id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
@@ -135,7 +140,7 @@ public class UserService {
     
     // ========== SECURE PROMOTION METHODS ==========
     
-    public boolean securePromoteToSuperAdmin(String email, String promotionKey) {
+    public boolean securePromoteToSuperAdmin(String identifier, String promotionKey) {
         // Check if promotion is enabled
         if (superAdminPromotionKey == null || superAdminPromotionKey.isEmpty()) {
             throw new UnauthorizedException("Super admin promotion is not enabled");
@@ -146,14 +151,22 @@ public class UserService {
             throw new UnauthorizedException("Invalid promotion key");
         }
         
-        // Find and promote user
+        // Find and promote user by email or phone number
         try {
-            User user = getUserByEmail(email);
+            User user;
+            if (identifier.contains("@")) {
+                // It's an email address
+                user = getUserByEmail(identifier);
+            } else {
+                // It's a phone number
+                user = getUserByPhone(identifier);
+            }
+            
             user.setRole(UserRole.SUPER_ADMIN);
             userRepository.save(user);
             return true;
         } catch (ResourceNotFoundException e) {
-            throw new UnauthorizedException("User not found: " + email);
+            throw new UnauthorizedException("User not found: " + identifier);
         }
     }
 } 
